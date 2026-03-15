@@ -55,16 +55,49 @@ class AuthRepositoryImpl(
     override suspend fun login(email: String, password: String): Result<User> {
         return try {
             val authResult = auth.signInWithEmailAndPassword(email, password).await()
-            val firebaseUser = authResult.user ?: throw Exception("User not found after login")
-            
-            val doc = firestore.collection(FirestoreSchema.USERS).document(firebaseUser.uid).get().await()
-            if (!doc.exists()) throw Exception("Profile not found in Firestore")
-            
-            val user = mapDocToUser(doc.data!!, firebaseUser.uid, firebaseUser.email!!)
-            userDao.insertUser(mapToEntity(user))
-            _currentUser.value = user
-            Result.success(user)
-        } catch (e: Exception) { Result.failure(e) }
+            val firebaseUser = authResult.user
+                ?: throw Exception("Login failed. Please try again.")
+
+            // Check if this is the admin email BEFORE touching Firestore
+            val isAdmin = adminConfig.isAdminEmail(email)
+
+            if (isAdmin) {
+                // Admin bypasses Firestore entirely
+                // Create a local admin User object from Firebase Auth only
+                val adminUser = User(
+                    uid = firebaseUser.uid,
+                    email = firebaseUser.email ?: email,
+                    username = "Admin",
+                    role = UserRole.ADMIN,
+                    isPremium = true,
+                    xp = 0,
+                    level = 1
+                )
+                // Save to local Room cache
+                userDao.insertUser(mapToEntity(adminUser))
+                _currentUser.value = adminUser
+                Result.success(adminUser)
+            } else {
+                // Regular user — fetch profile from Firestore as normal
+                val doc = firestore.collection(FirestoreSchema.USERS)
+                    .document(firebaseUser.uid).get().await()
+
+                if (!doc.exists()) {
+                    // Firestore doc missing — sign out and give clear error
+                    auth.signOut()
+                    throw Exception(
+                        "Account profile not found. Please sign up first or contact support."
+                    )
+                }
+
+                val user = mapDocToUser(doc.data!!, firebaseUser.uid, firebaseUser.email!!)
+                userDao.insertUser(mapToEntity(user))
+                _currentUser.value = user
+                Result.success(user)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     override suspend fun signUpClient(user: User, password: String): Result<User> {
@@ -269,11 +302,23 @@ class AuthRepositoryImpl(
             // Save new admin email to AdminConfig DataStore
             adminConfig.saveAdminEmail(newEmail.trim())
 
-            // Update email in Firestore user document
+            // Update email in Firestore user document (skip for admin — no doc exists)
             val uid = auth.currentUser?.uid
             if (uid != null) {
-                firestore.collection("users").document(uid)
-                    .update("email", newEmail.trim()).await()
+                try {
+                    firestore.collection(FirestoreSchema.USERS).document(uid)
+                        .update("email", newEmail.trim()).await()
+                } catch (e: Exception) {
+                    // Admin has no Firestore doc — this is expected, continue
+                }
+            }
+
+            // Update local Room cache with new email
+            val cachedUser = _currentUser.value
+            if (cachedUser != null) {
+                val updatedUser = cachedUser.copy(email = newEmail.trim())
+                userDao.insertUser(mapToEntity(updatedUser))
+                _currentUser.value = updatedUser
             }
 
             Result.success(Unit)

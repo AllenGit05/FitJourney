@@ -29,6 +29,9 @@ class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
     private val _navigateToDashboard = MutableStateFlow(false)
     val navigateToDashboard: StateFlow<Boolean> = _navigateToDashboard.asStateFlow()
 
+    private val _isAdmin = MutableStateFlow(false)
+    val isAdmin: StateFlow<Boolean> = _isAdmin.asStateFlow()
+
     fun onEmailChange(newValue: String) {
         _email.value = newValue
         _errorMessage.value = null
@@ -57,6 +60,7 @@ class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
 
             result.onSuccess { user ->
                 val isAdmin = authRepository.isAdminEmail(_email.value)
+                _isAdmin.value = isAdmin
                 if (isAdmin) {
                     _navigateToAdmin.value = true
                 } else {
@@ -74,12 +78,7 @@ class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
     fun isLoggedIn(): Boolean = authRepository.isLoggedIn()
 
     fun isAdminUser(): Boolean {
-        val email = authRepository.getCurrentUserEmail() ?: return false
-        // Using common sense here: AdminConfig.DEFAULT_ADMIN_EMAIL or checking via repository
-        // Since we can't easily access AdminConfig constants here without more imports, 
-        // and repository already has isAdminEmail, let's use that if possible.
-        // However, isAdminEmail is suspend. For a sync check, we might need a cached value.
-        // For now, I'll use the hardcoded default since it's a common fallback.
-        return email.lowercase() == "admin@fitjourney.com"
+        // Return current admin status or check by role
+        return _isAdmin.value || (authRepository.getCurrentUserEmail() != null && _navigateToAdmin.value)
     }
 }
