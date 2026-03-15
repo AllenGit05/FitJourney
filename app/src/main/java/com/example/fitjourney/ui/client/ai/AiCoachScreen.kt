@@ -122,10 +122,11 @@ fun AiCoachScreen(
             TopAppBar(
                 title = {
                     val coachName = when(user?.coachPersona) {
-                        "Rex" -> "Coach Rex"
-                        "Zen" -> "Zen Master"
+                        "Rex"    -> "Coach Rex 💪"
+                        "Zen"    -> "Zen Master 🧘"
+                        "Arjun"  -> "Coach Arjun 🇮🇳"
                         "Custom" -> "My Coach"
-                        else -> "Coach Aurora"
+                        else     -> "Coach Aurora ✨"
                     }
                     Text(coachName, color = FJTextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
                 },
@@ -185,6 +186,53 @@ fun AiCoachScreen(
                 }
             }
 
+            // Voice Language Toggle
+            val speakingLang = user?.speakingLanguage ?: "en"
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(FJSurface)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    "🎙️ Voice:",
+                    color = FJTextSecondary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                listOf(
+                    "en" to "English",
+                    "hi" to "हिंदी",
+                    "ml" to "മലയാളം"
+                ).forEach { (code, label) ->
+                    val isSelected = speakingLang == code
+                    Surface(
+                        onClick = { viewModel.setSpeakingLanguage(code) },
+                        color = if (isSelected) FJGold else FJBackground,
+                        shape = RoundedCornerShape(20.dp),
+                        border = if (isSelected) null
+                                 else androidx.compose.foundation.BorderStroke(
+                                     1.dp, FJDivider
+                                 ),
+                        modifier = Modifier.height(30.dp)
+                    ) {
+                        Text(
+                            text = label,
+                            color = if (isSelected) FJOnGold else FJTextSecondary,
+                            fontSize = 12.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold
+                                         else FontWeight.Normal,
+                            modifier = Modifier.padding(
+                                horizontal = 12.dp, vertical = 6.dp
+                            )
+                        )
+                    }
+                }
+            }
+
             // Chat area
             Column(
                 modifier = Modifier.weight(1f).imePadding()
@@ -241,10 +289,12 @@ fun AiCoachScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         val suggestions = listOf(
-                            "Generate a workout plan",
-                            "Analyze my progress",
-                            "Nutritional advice",
-                            "How to lose fat?"
+                            "Log my workout",
+                            "Add water 💧",
+                            "Log my weight",
+                            "Check my habits",
+                            "Weekly summary",
+                            "Change my goal"
                         )
                         items(suggestions) { suggestion ->
                             SuggestionChip(
@@ -299,7 +349,7 @@ fun AiCoachScreen(
                             onValueChange = { inputText = it },
                             placeholder = {
                                 Text(
-                                    "Ask about your diet or training...",
+                                    "Ask me anything or say 'log my workout'...",
                                     color = FJTextSecondary,
                                     fontSize = 14.sp
                                 )
@@ -486,6 +536,7 @@ fun PersonaSelectionDialog(
                 PersonaOption("Aurora", "Supportive & Encouraging", "Supportive", selected == "Aurora") { selected = "Aurora" }
                 PersonaOption("Rex", "Strict & High Energy", "No-nonsense", selected == "Rex") { selected = "Rex" }
                 PersonaOption("Zen", "Calm & Mindful", "Holistic", selected == "Zen") { selected = "Zen" }
+                PersonaOption("Arjun", "Coach Arjun 🇮🇳", "Desi • Warm", selected == "Arjun") { selected = "Arjun" }
                 PersonaOption("Custom", "Your Own Creation", "Define Personality", selected == "Custom") { selected = "Custom" }
 
                 if (selected == "Custom") {

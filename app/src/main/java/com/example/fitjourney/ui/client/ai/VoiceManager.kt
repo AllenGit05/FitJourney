@@ -16,14 +16,29 @@ import android.os.Build
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.*
+import android.media.MediaPlayer
+import com.example.fitjourney.data.remote.ElevenLabsClient
+import com.example.fitjourney.data.local.ApiKeyStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import java.io.File
+import java.io.FileOutputStream
 
-class VoiceManager(private val context: Context) : RecognitionListener {
+class VoiceManager(
+    private val context: Context,
+    private val apiKeyStore: ApiKeyStore? = null
+) : RecognitionListener {
 
     private val speechRecognizer: SpeechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
     private var tts: TextToSpeech? = null
     private var isTtsReady = false
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private var isSpeakerphoneRequested = false
+    private var currentPersona: String? = null
+    private val elevenLabsClient = ElevenLabsClient()
+    private var mediaPlayer: MediaPlayer? = null
+    private val voiceScope = CoroutineScope(Dispatchers.IO)
 
     private val _isListening = MutableStateFlow(false)
     val isListening = _isListening.asStateFlow()
@@ -57,9 +72,15 @@ class VoiceManager(private val context: Context) : RecognitionListener {
         stopSpeaking() // Ensure AI stops when user starts talking
         onRecognitionFinished = onResult
         _transcript.value = "Listening..."
+        val recognitionLocale = when (currentPersona) {
+            "Arjun" -> "en-IN"
+            else    -> Locale.getDefault().toLanguageTag()
+        }
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, recognitionLocale)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, recognitionLocale)
+            putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, false)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
         }
         speechRecognizer.startListening(intent)
@@ -72,8 +93,11 @@ class VoiceManager(private val context: Context) : RecognitionListener {
     }
 
     fun stopSpeaking() {
-        if (isTtsReady) {
-            tts?.stop()
+        if (isTtsReady) tts?.stop()
+        mediaPlayer?.let {
+            if (it.isPlaying) it.stop()
+            it.release()
+            mediaPlayer = null
         }
     }
 
@@ -103,37 +127,164 @@ class VoiceManager(private val context: Context) : RecognitionListener {
             .trim()
     }
 
-    fun speakWithPersona(text: String, persona: String?, gender: String?, onFinished: () -> Unit = {}) {
-        val isMale = gender == "Male"
-        
-        val (pitch, rate) = when (persona) {
-            "Rex" -> (if (isMale) 0.85f else 0.9f) to 1.15f   // Energetic, punchy
-            "Zen" -> (if (isMale) 0.95f else 1.0f) to 0.80f   // Calm, slow
-            "Custom" -> (if (isMale) 0.90f else 1.1f) to 1.00f // Neutral
-            else -> 1.15f to 1.05f                            // Aurora: Friendly
+    fun speakWithPersona(
+        text: String, 
+        persona: String?, 
+        gender: String?, 
+        onFinished: () -> Unit = {}
+    ) {
+        if (!isTtsReady) return
+
+        // ── Voice Profile per Coach ──────────────────────────
+        // pitch: < 1.0 = deeper, > 1.0 = higher
+        // rate:  < 1.0 = slower, > 1.0 = faster
+        data class VoiceProfile(
+            val pitch: Float,
+            val rate: Float,
+            val locale: Locale,
+            val preferredGender: String // "male" or "female"
+        )
+
+        val profile = when (persona) {
+            "Rex" -> VoiceProfile(
+                pitch = 0.75f,     // Deep, commanding voice
+                rate  = 1.2f,      // Fast, energetic
+                locale = Locale.US,
+                preferredGender = "male"
+            )
+            "Zen" -> VoiceProfile(
+                pitch = 0.95f,     // Calm, neutral
+                rate  = 0.75f,     // Slow, meditative
+                locale = Locale.US,
+                preferredGender = "male"
+            )
+            "Arjun" -> VoiceProfile(
+                pitch = 1.0f,      // Natural male Indian pitch
+                rate  = 1.05f,     // Slightly faster like natural Indian speech
+                locale = Locale("en", "IN"), // Indian English locale
+                preferredGender = "male"
+            )
+            else -> VoiceProfile(   // Aurora — default
+                pitch = 1.2f,      // Bright, friendly female
+                rate  = 1.0f,      // Normal pace
+                locale = Locale.US,
+                preferredGender = "female"
+            )
         }
 
-        // Attempt to find a gender-matching voice with diversity
-        if (isTtsReady) {
-            val voices = tts?.voices?.filter { 
-                it.locale.language == Locale.getDefault().language && !it.isNetworkConnectionRequired
-            }?.sortedBy { it.name } ?: emptyList()
+        // ── Find the best matching installed voice ───────────
+        val allVoices = tts?.voices?.filter { 
+            !it.isNetworkConnectionRequired 
+        } ?: emptyList()
 
-            val targetVoice = when (persona) {
-                "Rex" -> voices.filter { it.name.lowercase().contains("male") }.getOrNull(1) // Try second male
-                    ?: voices.find { it.name.lowercase().contains("male") }
-                "Zen" -> voices.filter { it.name.lowercase().contains("male") }.getOrNull(0) // Try first male
-                "Aurora" -> voices.filter { it.name.lowercase().contains("female") }.getOrNull(0) // Try first female
-                else -> {
-                    if (isMale) voices.find { it.name.lowercase().contains("male") }
-                    else voices.find { it.name.lowercase().contains("female") }
+        // First try exact locale match with gender
+        var targetVoice = allVoices.firstOrNull { voice ->
+            voice.locale.language == profile.locale.language &&
+            voice.locale.country == profile.locale.country &&
+            voice.name.lowercase().contains(profile.preferredGender)
+        }
+
+        // Fallback 1: Exact locale, any gender
+        if (targetVoice == null) {
+            targetVoice = allVoices.firstOrNull { voice ->
+                voice.locale.language == profile.locale.language &&
+                voice.locale.country == profile.locale.country
+            }
+        }
+
+        // Fallback 2: Same language, any country, preferred gender
+        if (targetVoice == null) {
+            targetVoice = allVoices.firstOrNull { voice ->
+                voice.locale.language == profile.locale.language &&
+                voice.name.lowercase().contains(profile.preferredGender)
+            }
+        }
+
+        // Fallback 3: Any English voice with preferred gender
+        if (targetVoice == null) {
+            targetVoice = allVoices.firstOrNull { voice ->
+                voice.locale.language == "en" &&
+                voice.name.lowercase().contains(profile.preferredGender)
+            }
+        }
+
+        // Fallback 4: Any available voice
+        if (targetVoice == null) {
+            targetVoice = allVoices.firstOrNull()
+        }
+
+        // Apply locale and voice
+        tts?.language = profile.locale
+        targetVoice?.let { tts?.voice = it }
+
+        speak(text, profile.pitch, profile.rate, onFinished)
+    }
+
+    fun setRecognitionLocale(persona: String?) {
+        currentPersona = persona
+    }
+
+    fun speakWithElevenLabs(
+        text: String,
+        persona: String?,
+        speakingLanguage: String = "en",
+        onFinished: () -> Unit = {}
+    ) {
+        voiceScope.launch {
+            try {
+                val apiKey = apiKeyStore?.getElevenLabsApiKey() ?: ""
+                if (apiKey.isBlank()) {
+                    // No ElevenLabs key — fall back to Android TTS
+                    val fallbackLocale = when (speakingLanguage) {
+                        "hi" -> java.util.Locale("hi", "IN")
+                        "ml" -> java.util.Locale("ml", "IN")
+                        else -> java.util.Locale.US
+                    }
+                    tts?.language = fallbackLocale
+                    speakWithPersona(text, persona, null, onFinished)
+                    return@launch
                 }
-            } ?: voices.firstOrNull()
-            
-            targetVoice?.let { tts?.voice = it }
-        }
 
-        speak(text, pitch, rate, onFinished)
+                val audioBytes = elevenLabsClient.synthesize(
+                    apiKey, text, persona, speakingLanguage
+                )
+
+                // Write to temp file and play with MediaPlayer
+                val tempFile = File(context.cacheDir, "coach_speech.mp3")
+                FileOutputStream(tempFile).use { it.write(audioBytes) }
+
+                // Play on main thread
+                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                    mediaPlayer?.release()
+                    mediaPlayer = MediaPlayer().apply {
+                        setDataSource(tempFile.absolutePath)
+                        setAudioAttributes(
+                            android.media.AudioAttributes.Builder()
+                                .setUsage(android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                                .build()
+                        )
+                        prepare()
+                        start()
+                        setOnCompletionListener {
+                            onFinished()
+                            release()
+                            mediaPlayer = null
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // ElevenLabs failed — fall back to Android TTS silently
+                e.printStackTrace()
+                val fallbackLocale = when (speakingLanguage) {
+                    "hi" -> java.util.Locale("hi", "IN")
+                    "ml" -> java.util.Locale("ml", "IN")
+                    else -> java.util.Locale.US
+                }
+                tts?.language = fallbackLocale
+                speakWithPersona(text, persona, null, onFinished)
+            }
+        }
     }
 
     fun setSpeakerphone(isOn: Boolean) {
@@ -163,6 +314,8 @@ class VoiceManager(private val context: Context) : RecognitionListener {
     }
 
     fun shutdown() {
+        mediaPlayer?.release()
+        mediaPlayer = null
         speechRecognizer.destroy()
         tts?.shutdown()
         // Reset to normal mode and clear routing

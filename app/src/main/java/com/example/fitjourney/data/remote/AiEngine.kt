@@ -31,7 +31,7 @@ class AiEngine(
         if (geminiKey.isNotBlank()) {
             try {
                 val model = GenerativeModel(
-                    modelName = "gemini-2.0-flash-lite",
+                    modelName = "gemini-2.0-flash",
                     apiKey = geminiKey
                 )
                 val response = model.generateContent(prompt)

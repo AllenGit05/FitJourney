@@ -7,6 +7,7 @@ import androidx.navigation.compose.composable
 
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import com.example.fitjourney.di.AppViewModelProvider
 
 @Composable
 fun FitJourneyNavGraph(
@@ -19,7 +20,7 @@ fun FitJourneyNavGraph(
     ) {
         composable(route = Screen.Login.route) {
             val viewModel: com.example.fitjourney.ui.auth.AuthViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = com.example.fitjourney.di.AppViewModelProvider.Factory
+                factory = AppViewModelProvider.Factory
             )
             val navigateToAdmin by viewModel.navigateToAdmin.collectAsState()
             val navigateToDashboard by viewModel.navigateToDashboard.collectAsState()
@@ -47,10 +48,10 @@ fun FitJourneyNavGraph(
                 }
             )
         }
-        // ... (SignUp and ForgotPassword remain same)
+
         composable(route = Screen.SignUpClient.route) {
             val viewModel: com.example.fitjourney.ui.auth.SignUpViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = com.example.fitjourney.di.AppViewModelProvider.Factory
+                factory = AppViewModelProvider.Factory
             )
             com.example.fitjourney.ui.auth.SignUpScreen(
                 viewModel = viewModel,
@@ -62,9 +63,10 @@ fun FitJourneyNavGraph(
                 }
             )
         }
+
         composable(route = Screen.ForgotPassword.route) {
             val viewModel: com.example.fitjourney.ui.auth.ForgotPasswordViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = com.example.fitjourney.di.AppViewModelProvider.Factory
+                factory = AppViewModelProvider.Factory
             )
             com.example.fitjourney.ui.auth.ForgotPasswordScreen(
                 viewModel = viewModel,
@@ -104,94 +106,100 @@ fun FitJourneyNavGraph(
         composable(route = Screen.ClientDashboard.route) {
             // Handled inside MainScreen
         }
-        // ... (Diet, Workout, Calculators, Progress, Settings remain same)
+
         composable(route = Screen.ClientDiet.route) {
             val viewModel: com.example.fitjourney.ui.client.diet.DietTrackingViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = com.example.fitjourney.di.AppViewModelProvider.Factory
+                factory = AppViewModelProvider.Factory
             )
             com.example.fitjourney.ui.client.diet.DietTrackingScreen(
                 viewModel = viewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
+
         composable(route = Screen.ClientWorkout.route) {
             val viewModel: com.example.fitjourney.ui.client.workout.WorkoutTrackingViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = com.example.fitjourney.di.AppViewModelProvider.Factory
+                factory = AppViewModelProvider.Factory
             )
             com.example.fitjourney.ui.client.workout.WorkoutTrackingScreen(
                 viewModel = viewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
+
         composable(route = Screen.BmiCalculator.route) {
             val viewModel: com.example.fitjourney.ui.client.calculators.CalculatorsViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = com.example.fitjourney.di.AppViewModelProvider.Factory
+                factory = AppViewModelProvider.Factory
             )
             com.example.fitjourney.ui.client.calculators.BmiCalculatorScreen(
                 viewModel = viewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
+
         composable(route = Screen.TdeeCalculator.route) {
             val viewModel: com.example.fitjourney.ui.client.calculators.CalculatorsViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = com.example.fitjourney.di.AppViewModelProvider.Factory
+                factory = AppViewModelProvider.Factory
             )
             com.example.fitjourney.ui.client.calculators.TdeeCalculatorScreen(
                 viewModel = viewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
+
         composable(route = Screen.MacroCalculator.route) {
             val viewModel: com.example.fitjourney.ui.client.calculators.CalculatorsViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = com.example.fitjourney.di.AppViewModelProvider.Factory
+                factory = AppViewModelProvider.Factory
             )
             com.example.fitjourney.ui.client.calculators.MacroCalculatorScreen(
                 viewModel = viewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
-        composable(route = Screen.ClientProgress.route) {
-            // Handled inside MainScreen
-        }
+
         composable(route = Screen.WeightProgress.route) {
             val viewModel: com.example.fitjourney.ui.client.progress.ProgressViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = com.example.fitjourney.di.AppViewModelProvider.Factory
+                factory = AppViewModelProvider.Factory
             )
             com.example.fitjourney.ui.client.progress.WeightProgressScreen(
                 viewModel = viewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
+
         composable(route = Screen.ProgressPhotos.route) {
             val viewModel: com.example.fitjourney.ui.client.progress.ProgressViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = com.example.fitjourney.di.AppViewModelProvider.Factory
+                factory = AppViewModelProvider.Factory
             )
             com.example.fitjourney.ui.client.progress.ProgressPhotosScreen(
                 viewModel = viewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
+
         composable(route = Screen.StrengthProgress.route) {
             val viewModel: com.example.fitjourney.ui.client.progress.ProgressViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = com.example.fitjourney.di.AppViewModelProvider.Factory
+                factory = AppViewModelProvider.Factory
             )
             com.example.fitjourney.ui.client.progress.StrengthProgressScreen(
                 viewModel = viewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
+
         composable(route = Screen.BodyMeasurements.route) {
             val viewModel: com.example.fitjourney.ui.client.progress.ProgressViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = com.example.fitjourney.di.AppViewModelProvider.Factory
+                factory = AppViewModelProvider.Factory
             )
             com.example.fitjourney.ui.client.progress.BodyMeasurementsScreen(
                 viewModel = viewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
+
         composable(route = Screen.ClientSettings.route) {
             val viewModel: com.example.fitjourney.ui.client.settings.SettingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = com.example.fitjourney.di.AppViewModelProvider.Factory
+                factory = AppViewModelProvider.Factory
             )
             com.example.fitjourney.ui.client.settings.SettingsScreen(
                 viewModel = viewModel,
@@ -203,11 +211,10 @@ fun FitJourneyNavGraph(
                 }
             )
         }
-        
-        // AI Coach
+
         composable(route = Screen.AiCoach.route) {
-             val viewModel: com.example.fitjourney.ui.client.ai.AiCoachViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = com.example.fitjourney.di.AppViewModelProvider.Factory
+            val viewModel: com.example.fitjourney.ui.client.ai.AiCoachViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                factory = AppViewModelProvider.Factory
             )
             com.example.fitjourney.ui.client.ai.AiCoachScreen(
                 viewModel = viewModel,
@@ -215,10 +222,10 @@ fun FitJourneyNavGraph(
                 onNavigateToVoiceCall = { navController.navigate(Screen.AiVoiceCall.route) }
             )
         }
-        
+
         composable(route = Screen.AiVoiceCall.route) {
             val viewModel: com.example.fitjourney.ui.client.ai.AiCoachViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = com.example.fitjourney.di.AppViewModelProvider.Factory
+                factory = AppViewModelProvider.Factory
             )
             com.example.fitjourney.ui.client.ai.AiVoiceCallScreen(
                 viewModel = viewModel,
@@ -228,7 +235,7 @@ fun FitJourneyNavGraph(
 
         composable(route = Screen.GenerateWorkoutPlan.route) {
             val viewModel: com.example.fitjourney.ui.client.workout.generator.WorkoutGeneratorViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = com.example.fitjourney.di.AppViewModelProvider.Factory
+                factory = AppViewModelProvider.Factory
             )
             com.example.fitjourney.ui.client.workout.generator.WorkoutGeneratorScreen(
                 viewModel = viewModel,
@@ -238,7 +245,7 @@ fun FitJourneyNavGraph(
 
         composable(route = Screen.WeeklyInsights.route) {
             val viewModel: com.example.fitjourney.ui.client.insights.WeeklyInsightsViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = com.example.fitjourney.di.AppViewModelProvider.Factory
+                factory = AppViewModelProvider.Factory
             )
             com.example.fitjourney.ui.client.insights.WeeklyInsightsScreen(
                 viewModel = viewModel,
@@ -248,7 +255,7 @@ fun FitJourneyNavGraph(
 
         composable(route = Screen.ClientHabits.route) {
             val viewModel: com.example.fitjourney.ui.client.habits.HabitViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = com.example.fitjourney.di.AppViewModelProvider.Factory
+                factory = AppViewModelProvider.Factory
             )
             com.example.fitjourney.ui.client.habits.HabitScreen(
                 viewModel = viewModel,
@@ -259,13 +266,14 @@ fun FitJourneyNavGraph(
         // Admin
         composable(route = Screen.AdminDashboard.route) {
             val viewModel: com.example.fitjourney.ui.admin.AdminDashboardViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = com.example.fitjourney.di.AppViewModelProvider.Factory
+                factory = AppViewModelProvider.Factory
             )
             com.example.fitjourney.ui.admin.AdminDashboardScreen(
                 viewModel = viewModel,
                 onNavigateToApi = { navController.navigate(Screen.AdminApiManagement.route) },
                 onNavigateToAdmins = { navController.navigate(Screen.AdminManagement.route) },
                 onNavigateToProfile = { navController.navigate(Screen.AdminProfile.route) },
+                onNavigateToDiagnostics = { navController.navigate(Screen.FirebaseDiagnostic.route) },
                 onLogout = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
@@ -275,7 +283,7 @@ fun FitJourneyNavGraph(
         }
         composable(route = Screen.AdminApiManagement.route) {
             val viewModel: com.example.fitjourney.ui.admin.api.AdminApiManagementViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = com.example.fitjourney.di.AppViewModelProvider.Factory
+                factory = AppViewModelProvider.Factory
             )
             com.example.fitjourney.ui.admin.api.AdminApiManagementScreen(
                 viewModel = viewModel,
@@ -284,7 +292,7 @@ fun FitJourneyNavGraph(
         }
         composable(route = Screen.AdminManagement.route) {
             val viewModel: com.example.fitjourney.ui.admin.management.AdminManagementViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = com.example.fitjourney.di.AppViewModelProvider.Factory
+                factory = AppViewModelProvider.Factory
             )
             com.example.fitjourney.ui.admin.management.AdminManagementScreen(
                 viewModel = viewModel,
@@ -293,11 +301,19 @@ fun FitJourneyNavGraph(
         }
         composable(route = Screen.AdminProfile.route) {
             val viewModel: com.example.fitjourney.ui.admin.AdminProfileViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = com.example.fitjourney.di.AppViewModelProvider.Factory
+                factory = AppViewModelProvider.Factory
             )
             com.example.fitjourney.ui.admin.AdminProfileScreen(
                 viewModel = viewModel,
                 onNavIconClick = { navController.popBackStack() }
+            )
+        }
+        composable(route = Screen.FirebaseDiagnostic.route) {
+            val viewModel: com.example.fitjourney.ui.admin.diagnostic.FirebaseDiagnosticViewModel =
+                androidx.lifecycle.viewmodel.compose.viewModel(factory = AppViewModelProvider.Factory)
+            com.example.fitjourney.ui.admin.diagnostic.FirebaseDiagnosticScreen(
+                viewModel = viewModel,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }

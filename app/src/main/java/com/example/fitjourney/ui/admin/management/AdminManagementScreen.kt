@@ -28,10 +28,28 @@ fun AdminManagementScreen(
     val admins        by viewModel.admins.collectAsState()
     val newAdminEmail by viewModel.newAdminEmail.collectAsState()
     val isLoading     by viewModel.isLoading.collectAsState()
+    val errorMessage  by viewModel.errorMessage.collectAsState()
+    val successMessage by viewModel.successMessage.collectAsState()
+
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearMessages()
+        }
+    }
+    LaunchedEffect(successMessage) {
+        successMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearMessages()
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(FJBackground)) {
         Scaffold(
             containerColor = FJBackground,
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 TopAppBar(
                     title = { Text("Admin Management", color = FJTextPrimary, fontWeight = FontWeight.Bold) },

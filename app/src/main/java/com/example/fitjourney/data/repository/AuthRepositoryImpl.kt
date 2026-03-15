@@ -26,7 +26,8 @@ class AuthRepositoryImpl(
     private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
     private val userDao: UserDao,
-    private val adminConfig: AdminConfig
+    private val adminConfig: AdminConfig,
+    private val database: com.example.fitjourney.data.local.FitJourneyDatabase? = null
 ) : AuthRepository {
 
     private val _currentUser = MutableStateFlow<User?>(null)
@@ -83,11 +84,36 @@ class AuthRepositoryImpl(
                     .document(firebaseUser.uid).get().await()
 
                 if (!doc.exists()) {
-                    // Firestore doc missing — sign out and give clear error
-                    auth.signOut()
-                    throw Exception(
-                        "Account profile not found. Please sign up first or contact support."
+                    // Firestore doc missing but Auth account exists
+                    // This can happen if Firestore was wiped but Auth was not
+                    // Auto-recreate a basic profile so the user isn't locked out
+                    val recoveredUser = User(
+                        uid = firebaseUser.uid,
+                        email = firebaseUser.email ?: email,
+                        username = firebaseUser.email?.substringBefore("@") ?: "User",
+                        role = UserRole.CLIENT,
+                        isPremium = false,
+                        aiCredits = 10,
+                        stepGoal = 10000,
+                        waterGoal = 2500,
+                        calorieGoal = 2000,
+                        fitnessGoal = "Maintain Weight",
+                        activityLevel = "MODERATE",
+                        foodType = "BALANCED",
+                        coachPersona = "Aurora",
+                        coachName = "Aurora",
+                        coachGender = "Female",
+                        speakingLanguage = "en"
                     )
+                    // Re-create the Firestore document
+                    firestore.collection(FirestoreSchema.USERS)
+                        .document(firebaseUser.uid)
+                        .set(mapToFirestoreMap(recoveredUser))
+                        .await()
+                    // Save to local Room cache
+                    userDao.insertUser(mapToEntity(recoveredUser))
+                    _currentUser.value = recoveredUser
+                    return Result.success(recoveredUser)
                 }
 
                 val user = mapDocToUser(doc.data!!, firebaseUser.uid, firebaseUser.email!!)
@@ -117,7 +143,17 @@ class AuthRepositoryImpl(
 
     override suspend fun logout() {
         auth.signOut()
-        userDao.clearAll()
+        try {
+            database?.workoutDao()?.clearAll()
+            database?.dietDao()?.clearAll()
+            database?.stepDao()?.clearAll()
+            database?.weightDao()?.clearAll()
+            database?.habitDao()?.clearAll()
+            database?.waterDao()?.clearAll()
+            database?.chatDao()?.clearAll()
+            database?.weeklyReportDao()?.clearAll()
+            userDao.clearAll()
+        } catch (e: Exception) { }
         _currentUser.value = null
     }
 
@@ -160,8 +196,13 @@ class AuthRepositoryImpl(
     }
 
     private fun isConsecutive(last: String, current: String): Boolean {
-        // Simplified Logic
-        return true 
+        return try {
+            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+            val lastDate = sdf.parse(last) ?: return false
+            val currentDate = sdf.parse(current) ?: return false
+            val diff = currentDate.time - lastDate.time
+            diff <= 24 * 60 * 60 * 1000L
+        } catch (e: Exception) { false }
     }
 
     private fun mapDocToUser(data: Map<String, Any>, uid: String, email: String): User {
@@ -171,85 +212,147 @@ class AuthRepositoryImpl(
             username = data["username"] as? String ?: "User",
             role = UserRole.valueOf(data["role"] as? String ?: "CLIENT"),
             isPremium = data["isPremium"] as? Boolean ?: false,
+            aiCredits = (data["aiCredits"] as? Long)?.toInt() ?: 10,
+            dailyAiMessagesCount = (data["dailyAiMessagesCount"] as? Long)?.toInt() ?: 0,
+            lastAiMessageDate = data["lastAiMessageDate"] as? String ?: "",
+            lastCreditResetMonth = (data["lastCreditResetMonth"] as? Long)?.toInt() ?: -1,
             gender = data["gender"] as? String ?: "",
             dob = data["dob"] as? String ?: "",
             height = data["height"]?.toString() ?: "0",
             weight = data["weight"]?.toString() ?: "0",
             goalWeight = data["goalWeight"]?.toString() ?: "0",
-            fitnessGoal = data["fitnessGoal"] as? String ?: ""
+            activityLevel = data["activityLevel"] as? String ?: "MODERATE",
+            foodType = data["foodType"] as? String ?: "BALANCED",
+            xp = (data["xp"] as? Long)?.toInt() ?: 0,
+            level = (data["level"] as? Long)?.toInt() ?: 1,
+            currentStreak = (data["currentStreak"] as? Long)?.toInt() ?: 0,
+            longestStreak = (data["longestStreak"] as? Long)?.toInt() ?: 0,
+            lastActiveDate = data["lastActiveDate"] as? String ?: "",
+            stepGoal = (data["stepGoal"] as? Long)?.toInt() ?: 10000,
+            waterGoal = (data["waterGoal"] as? Long)?.toInt() ?: 2500,
+            calorieGoal = (data["calorieGoal"] as? Long)?.toInt() ?: 2000,
+            fitnessGoal = data["fitnessGoal"] as? String ?: "Maintain Weight",
+            coachPersona = data["coachPersona"] as? String ?: "Aurora",
+            customCoachPersona = data["customCoachPersona"] as? String ?: "",
+            coachGender = data["coachGender"] as? String ?: "Female",
+            coachName = data["coachName"] as? String ?: "Aurora",
+            lastGreeting = data["lastGreeting"] as? String ?: "",
+            lastGreetingDate = data["lastGreetingDate"] as? String ?: "",
+            profilePictureUri = data["profilePictureUri"] as? String,
+            speakingLanguage = data["speakingLanguage"] as? String ?: "en"
         )
     }
 
-    private fun mapToFirestoreMap(user: User): Map<String, Any> {
+    private fun mapToFirestoreMap(user: User): Map<String, Any?> {
         return mapOf(
             "username" to user.username,
             "role" to user.role.name,
             "email" to user.email,
             "isPremium" to user.isPremium,
+            "aiCredits" to user.aiCredits,
+            "dailyAiMessagesCount" to user.dailyAiMessagesCount,
+            "lastAiMessageDate" to user.lastAiMessageDate,
+            "lastCreditResetMonth" to user.lastCreditResetMonth,
             "gender" to user.gender,
             "dob" to user.dob,
             "height" to user.height,
             "weight" to user.weight,
             "goalWeight" to user.goalWeight,
-            "fitnessGoal" to user.fitnessGoal,
+            "activityLevel" to user.activityLevel,
+            "foodType" to user.foodType,
             "xp" to user.xp,
-            "level" to user.level
+            "level" to user.level,
+            "currentStreak" to user.currentStreak,
+            "longestStreak" to user.longestStreak,
+            "lastActiveDate" to user.lastActiveDate,
+            "stepGoal" to user.stepGoal,
+            "waterGoal" to user.waterGoal,
+            "calorieGoal" to user.calorieGoal,
+            "fitnessGoal" to user.fitnessGoal,
+            "coachPersona" to user.coachPersona,
+            "customCoachPersona" to user.customCoachPersona,
+            "coachGender" to user.coachGender,
+            "coachName" to user.coachName,
+            "lastGreeting" to user.lastGreeting,
+            "lastGreetingDate" to user.lastGreetingDate,
+            "profilePictureUri" to user.profilePictureUri,
+            "speakingLanguage" to user.speakingLanguage
         )
     }
 
     private fun mapToEntity(user: User): UserEntity {
         return UserEntity(
-            uid = user.uid, 
-            email = user.email, 
-            username = user.username, 
+            uid = user.uid,
+            email = user.email,
+            username = user.username,
             role = user.role.name,
-            isPremium = user.isPremium, 
-            gender = user.gender, 
+            isPremium = user.isPremium,
+            aiCredits = user.aiCredits,
+            dailyAiMessagesCount = user.dailyAiMessagesCount,
+            lastAiMessageDate = user.lastAiMessageDate,
+            lastCreditResetMonth = user.lastCreditResetMonth,
+            gender = user.gender,
             dob = user.dob,
-            height = user.height, 
-            weight = user.weight, 
+            height = user.height,
+            weight = user.weight,
             goalWeight = user.goalWeight,
-            fitnessGoal = user.fitnessGoal, 
-            xp = user.xp, 
+            activityLevel = user.activityLevel,
+            foodType = user.foodType,
+            xp = user.xp,
             level = user.level,
-            currentStreak = user.currentStreak, 
+            currentStreak = user.currentStreak,
+            longestStreak = user.longestStreak,
             lastActiveDate = user.lastActiveDate,
-            aiCredits = 10,
-            dailyAiMessagesCount = 0,
-            lastAiMessageDate = "",
-            lastCreditResetMonth = 0,
-            activityLevel = "MODERATE",
-            foodType = "BALANCED",
-            longestStreak = user.currentStreak,
-            stepGoal = 10000,
-            waterGoal = 2500,
-            calorieGoal = 2000,
-            coachPersona = "AURORA",
-            customCoachPersona = "",
-            coachGender = "FEMALE",
-            coachName = "Aurora",
-            lastGreeting = "",
-            lastGreetingDate = ""
+            stepGoal = user.stepGoal,
+            waterGoal = user.waterGoal,
+            calorieGoal = user.calorieGoal,
+            fitnessGoal = user.fitnessGoal,
+            coachPersona = user.coachPersona,
+            customCoachPersona = user.customCoachPersona,
+            coachGender = user.coachGender,
+            coachName = user.coachName,
+            lastGreeting = user.lastGreeting,
+            lastGreetingDate = user.lastGreetingDate,
+            profilePictureUri = user.profilePictureUri,
+            speakingLanguage = user.speakingLanguage
         )
     }
 
     private fun mapToDomain(entity: UserEntity): User {
         return User(
-            uid = entity.uid, 
-            email = entity.email, 
+            uid = entity.uid,
+            email = entity.email,
             username = entity.username,
-            role = UserRole.valueOf(entity.role), 
+            role = UserRole.valueOf(entity.role),
             isPremium = entity.isPremium,
-            gender = entity.gender, 
-            dob = entity.dob, 
+            aiCredits = entity.aiCredits,
+            dailyAiMessagesCount = entity.dailyAiMessagesCount,
+            lastAiMessageDate = entity.lastAiMessageDate,
+            lastCreditResetMonth = entity.lastCreditResetMonth,
+            gender = entity.gender,
+            dob = entity.dob,
             height = entity.height,
-            weight = entity.weight, 
+            weight = entity.weight,
             goalWeight = entity.goalWeight,
-            fitnessGoal = entity.fitnessGoal, 
-            xp = entity.xp, 
+            activityLevel = entity.activityLevel,
+            foodType = entity.foodType,
+            xp = entity.xp,
             level = entity.level,
-            currentStreak = entity.currentStreak, 
-            lastActiveDate = entity.lastActiveDate
+            currentStreak = entity.currentStreak,
+            longestStreak = entity.longestStreak,
+            lastActiveDate = entity.lastActiveDate,
+            stepGoal = entity.stepGoal,
+            waterGoal = entity.waterGoal,
+            calorieGoal = entity.calorieGoal,
+            fitnessGoal = entity.fitnessGoal,
+            coachPersona = entity.coachPersona,
+            customCoachPersona = entity.customCoachPersona,
+            coachGender = entity.coachGender,
+            coachName = entity.coachName,
+            lastGreeting = entity.lastGreeting,
+            lastGreetingDate = entity.lastGreetingDate,
+            profilePictureUri = entity.profilePictureUri,
+            speakingLanguage = entity.speakingLanguage
         )
     }
 
@@ -350,6 +453,15 @@ class AuthRepositoryImpl(
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(Exception("Failed to change password: ${e.message}"))
+        }
+    }
+
+    override suspend fun recoverAccount(email: String, password: String): Result<User> {
+        return try {
+            // Try to login — this will trigger the auto-recovery in login()
+            login(email, password)
+        } catch (e: Exception) {
+            Result.failure(Exception("Recovery failed: ${e.message}"))
         }
     }
 }

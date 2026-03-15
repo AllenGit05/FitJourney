@@ -33,7 +33,17 @@ data class AdminApiUiState(
     // General
     val successMessage: String? = null,
     val testResponse: String? = null,
-    val isLiveTesting: Boolean = false
+    val isLiveTesting: Boolean = false,
+    val geminiRateLimitAt: Long = 0L,
+    val groqRateLimitAt: Long = 0L,
+
+    // ElevenLabs
+    val elevenLabsKeyInput: String = "",
+    val elevenLabsKeyVisible: Boolean = false,
+    val isElevenLabsKeySaved: Boolean = false,
+    val elevenLabsStatus: String = "UNKNOWN",
+    val elevenLabsStatusMessage: String = "",
+    val isTestingElevenLabs: Boolean = false
 )
 
 class AdminApiManagementViewModel(
@@ -50,13 +60,23 @@ class AdminApiManagementViewModel(
         viewModelScope.launch {
             val savedGemini = apiKeyStore.getGeminiApiKey()
             val savedGroq = apiKeyStore.getGroqApiKey()
+            val savedElevenLabs = apiKeyStore.getElevenLabsApiKey()
             _uiState.update {
                 it.copy(
                     geminiKeyInput = savedGemini,
                     isGeminiKeySaved = savedGemini.isNotBlank(),
                     groqKeyInput = savedGroq,
-                    isGroqKeySaved = savedGroq.isNotBlank()
+                    isGroqKeySaved = savedGroq.isNotBlank(),
+                    elevenLabsKeyInput = savedElevenLabs,
+                    isElevenLabsKeySaved = savedElevenLabs.isNotBlank()
                 )
+            }
+            
+            // Auto-clear stale rate limit status (resets after 60s for RPM limits)
+            val now = System.currentTimeMillis()
+            if (_uiState.value.geminiRateLimitAt > 0 && 
+                now - _uiState.value.geminiRateLimitAt > 60_000L) {
+                _uiState.update { it.copy(geminiStatus = "UNKNOWN", geminiStatusMessage = "") }
             }
         }
     }
@@ -115,7 +135,7 @@ class AdminApiManagementViewModel(
             val start = System.currentTimeMillis()
             try {
                 val model = GenerativeModel(
-                    modelName = "gemini-2.0-flash-lite",
+                    modelName = "gemini-2.0-flash",
                     apiKey = key
                 )
                 withContext(Dispatchers.IO) { model.generateContent("Say OK") }
@@ -132,14 +152,21 @@ class AdminApiManagementViewModel(
                 val latency = System.currentTimeMillis() - start
                 val msg = e.message ?: "Unknown error"
                 val isRateLimit = RateLimitHandler.isRateLimitError(msg)
+                val retrySeconds = if (isRateLimit) RateLimitHandler.parseRetrySeconds(msg) else 0
+                val statusMsg = when {
+                    isRateLimit && retrySeconds > 0 ->
+                        "Rate limited — retry in ${retrySeconds}s. Groq fallback is active."
+                    isRateLimit ->
+                        "Daily quota exceeded. Resets at midnight PT. Groq fallback is active."
+                    else -> "Error: $msg"
+                }
                 _uiState.update {
                     it.copy(
                         isTestingGemini = false,
                         geminiStatus = if (isRateLimit) "RATE_LIMITED" else "ERROR",
                         geminiLatencyMs = latency,
-                        geminiStatusMessage = if (isRateLimit)
-                            "Rate limited — quota exceeded."
-                        else "Error: $msg"
+                        geminiStatusMessage = statusMsg,
+                        geminiRateLimitAt = if (isRateLimit) System.currentTimeMillis() else it.geminiRateLimitAt
                     )
                 }
             }
@@ -232,7 +259,7 @@ class AdminApiManagementViewModel(
                 val key = if (provider == "Gemini") _uiState.value.geminiKeyInput else _uiState.value.groqKeyInput
                 val response = when (provider) {
                     "Gemini" -> {
-                        val model = GenerativeModel(modelName = "gemini-2.0-flash-lite", apiKey = key.trim())
+                        val model = GenerativeModel(modelName = "gemini-2.0-flash", apiKey = key.trim())
                         withContext(Dispatchers.IO) { model.generateContent(prompt).text ?: "Empty response" }
                     }
                     "Groq" -> {
@@ -255,5 +282,88 @@ class AdminApiManagementViewModel(
 
     fun clearSuccessMessage() {
         _uiState.update { it.copy(successMessage = null) }
+    }
+
+    fun clearGeminiStatus() {
+        _uiState.update {
+            it.copy(
+                geminiStatus = "UNKNOWN",
+                geminiStatusMessage = "",
+                geminiRateLimitAt = 0L
+            )
+        }
+    }
+
+    fun clearGroqStatus() {
+        _uiState.update {
+            it.copy(
+                groqStatus = "UNKNOWN",
+                groqStatusMessage = "",
+                groqRateLimitAt = 0L
+            )
+        }
+    }
+
+    // ── ElevenLabs ─────────────────────────────────────────
+    fun onElevenLabsKeyChanged(key: String) {
+        _uiState.update { it.copy(elevenLabsKeyInput = key, isElevenLabsKeySaved = false) }
+    }
+
+    fun toggleElevenLabsKeyVisibility() {
+        _uiState.update { it.copy(elevenLabsKeyVisible = !it.elevenLabsKeyVisible) }
+    }
+
+    fun saveElevenLabsKey() {
+        viewModelScope.launch {
+            val key = _uiState.value.elevenLabsKeyInput.trim()
+            if (key.isBlank()) return@launch
+            apiKeyStore.saveElevenLabsApiKey(key)
+            _uiState.update {
+                it.copy(
+                    isElevenLabsKeySaved = true,
+                    elevenLabsStatus = "UNKNOWN",
+                    successMessage = "ElevenLabs key saved"
+                )
+            }
+        }
+    }
+
+    fun deleteElevenLabsKey() {
+        viewModelScope.launch {
+            apiKeyStore.clearElevenLabsApiKey()
+            _uiState.update {
+                it.copy(
+                    elevenLabsKeyInput = "",
+                    isElevenLabsKeySaved = false,
+                    elevenLabsStatus = "UNKNOWN",
+                    elevenLabsStatusMessage = ""
+                )
+            }
+        }
+    }
+
+    fun testElevenLabsConnection() {
+        viewModelScope.launch {
+            val key = _uiState.value.elevenLabsKeyInput.trim()
+            if (key.isBlank()) return@launch
+            _uiState.update { it.copy(isTestingElevenLabs = true) }
+            val (success, message) = withContext(Dispatchers.IO) {
+                com.example.fitjourney.data.remote.ElevenLabsClient()
+                    .testConnection(key)
+            }
+            _uiState.update {
+                it.copy(
+                    isTestingElevenLabs = false,
+                    elevenLabsStatus = if (success) "ONLINE" else "ERROR",
+                    elevenLabsStatusMessage = message
+                )
+            }
+        }
+    }
+
+    fun clearElevenLabsStatus() {
+        _uiState.update {
+            it.copy(elevenLabsStatus = "UNKNOWN", elevenLabsStatusMessage = "")
+        }
     }
 }

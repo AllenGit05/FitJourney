@@ -15,10 +15,7 @@ class PrototypeDataSeeder(
     private val habitDao: HabitDao
 ) {
     suspend fun seedIfNeeded() {
-        val workouts = workoutDao.getAllSessions().first()
-        if (workouts.isEmpty()) {
-            seedHistoricalData()
-        }
+        return // Seeding disabled - real users start with empty data
     }
 
     private suspend fun seedHistoricalData() {

@@ -160,6 +160,10 @@ class SettingsViewModel(private val authRepository: AuthRepository) : ViewModel(
                 _coachName.value = "Aurora"
                 _coachGender.value = "Female"
             }
+            "Arjun" -> {
+                _coachName.value = "Arjun"
+                _coachGender.value = "Male"
+            }
         }
     }
     fun setCustomCoachPersona(v: String) { _customCoachPersona.value = v }

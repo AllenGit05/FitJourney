@@ -38,6 +38,9 @@ interface WorkoutDao {
 
     @Query("UPDATE workout_sessions SET isDeleted = 1, isSynced = 0 WHERE id = :id")
     suspend fun softDelete(id: String)
+
+    @Query("DELETE FROM workout_sessions WHERE id = :id")
+    suspend fun deleteSessionById(id: String)
 }
 
 @Dao
@@ -62,6 +65,9 @@ interface DietDao {
 
     @Query("UPDATE diet_logs SET isDeleted = 1, isSynced = 0 WHERE id = :id")
     suspend fun softDelete(id: Long)
+
+    @Query("DELETE FROM diet_logs WHERE id = :id")
+    suspend fun deleteLogById(id: Long)
 }
 
 @Dao
@@ -101,6 +107,9 @@ interface WaterDao {
 
     @Query("UPDATE water_logs SET isDeleted = 1, isSynced = 0 WHERE id = :id")
     suspend fun softDelete(id: String)
+
+    @Query("DELETE FROM water_logs WHERE id = :id")
+    suspend fun deleteWaterById(id: String)
 }
 
 @Dao
@@ -173,6 +182,9 @@ interface ChatDao {
     @Insert
     suspend fun insertMessage(message: ChatMessageEntity)
 
+    @Query("DELETE FROM chat_messages")
+    suspend fun clearAll()
+
     @Query("DELETE FROM chat_messages WHERE userId = :userId")
     suspend fun clearHistory(userId: String)
 
@@ -194,6 +206,9 @@ interface HabitDao {
     @Delete
     suspend fun deleteHabit(habit: com.example.fitjourney.data.local.entity.HabitEntity)
 
+    @Query("DELETE FROM habits")
+    suspend fun clearAll()
+
     @Query("SELECT * FROM habits WHERE isSynced = 0 OR isDeleted = 1")
     fun getUnsyncedHabits(): Flow<List<com.example.fitjourney.data.local.entity.HabitEntity>>
 
@@ -208,6 +223,9 @@ interface WeeklyReportDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertReport(report: com.example.fitjourney.data.local.entity.WeeklyReportEntity)
+
+    @Query("DELETE FROM weekly_reports")
+    suspend fun clearAll()
 
     @Query("SELECT * FROM weekly_reports WHERE isSynced = 0 OR isDeleted = 1")
     fun getUnsyncedReports(): Flow<List<com.example.fitjourney.data.local.entity.WeeklyReportEntity>>

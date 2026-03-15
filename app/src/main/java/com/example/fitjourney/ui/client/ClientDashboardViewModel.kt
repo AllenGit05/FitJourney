@@ -9,6 +9,8 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 
 class ClientDashboardViewModel(
     private val workoutRepository: WorkoutRepository,
@@ -63,7 +65,6 @@ class ClientDashboardViewModel(
     val weeklyStreak: StateFlow<List<Boolean>> = workoutRepository.workoutHistory
         .map { history ->
             val result = mutableListOf<Boolean>()
-            val cal = Calendar.getInstance()
             // Go back 6 days + today
             for (i in 6 downTo 0) {
                 val checkCal = Calendar.getInstance()
@@ -92,22 +93,24 @@ class ClientDashboardViewModel(
     }
 
     private fun generateDailyGreetingAI() {
-        val user = currentUser.value ?: return
-        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-        val todayStr = dateFormat.format(Date())
-
-        if (user.lastGreetingDate == todayStr && user.lastGreeting.isNotEmpty()) {
-            _dailyInsight.value = user.lastGreeting
-            return
-        }
-
         viewModelScope.launch {
+            val user = currentUser.filterNotNull().first()
+            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            val todayStr = dateFormat.format(Date())
+
+            if (user.lastGreetingDate == todayStr && user.lastGreeting.isNotEmpty()) {
+                _dailyInsight.value = user.lastGreeting
+                return@launch
+            }
+
             try {
                 val workoutHistory = workoutRepository.workoutHistory.first()
-                val last7DaysWorkouts = workoutHistory.filter { it.date > System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000 }.size
-                
+                val last7DaysWorkouts = workoutHistory.filter {
+                    it.date > System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000
+                }.size
+
                 val persona = user.coachPersona
-                val tonePrompt = when(persona) {
+                val tonePrompt = when (persona) {
                     "Rex" -> "extremely tough, military style, no-excuses motivator"
                     "Zen" -> "calm, encouraging, mindful and peaceful"
                     "Aurora" -> "professional, data-driven, friendly and highly positive"
@@ -116,23 +119,19 @@ class ClientDashboardViewModel(
 
                 val prompt = """
                     You are $persona, a fitness coach with a $tonePrompt tone.
-                    User: ${user.username}. 
+                    User: ${user.username}.
                     Context: They have completed $last7DaysWorkouts workouts in the last 7 days.
-                    
+
                     Generate a 2-part greeting for the dashboard:
                     1. A warm welcome back (e.g., "Welcome back, [Name]! Ready to crush it?")
                     2. A short, single-line powerful motivation or insight based on their progress.
-                    
+
                     Keep the entire response under 40 words.
                     Separate the welcome and the insight with a newline.
                 """.trimIndent()
 
                 val greeting = apiRepository.generateContent(prompt)
-
-                val updatedUser = user.copy(
-                    lastGreeting = greeting,
-                    lastGreetingDate = todayStr
-                )
+                val updatedUser = user.copy(lastGreeting = greeting, lastGreetingDate = todayStr)
                 userRepository.saveProfile(updatedUser)
                 _dailyInsight.value = greeting
             } catch (e: Exception) {

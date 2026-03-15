@@ -87,7 +87,7 @@ fun AdminApiManagementScreen(
             item {
                 ApiKeySection(
                     title = "Gemini API",
-                    subtitle = "Primary AI engine — gemini-2.0-flash-lite",
+                    subtitle = "Primary AI engine — gemini-2.0-flash",
                     badgeText = "PRIMARY",
                     badgeColor = FJGold,
                     keyInput = uiState.geminiKeyInput,
@@ -103,8 +103,41 @@ fun AdminApiManagementScreen(
                     onSave = viewModel::saveGeminiKey,
                     onDelete = viewModel::deleteGeminiKey,
                     onTest = viewModel::testGeminiConnection,
-                    onLiveTest = { showLiveTestProvider = "Gemini" }
+                    onLiveTest = { showLiveTestProvider = "Gemini" },
+                    onClearStatus = viewModel::clearGeminiStatus
                 )
+            }
+
+            item {
+                if (uiState.geminiStatus == "RATE_LIMITED") {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1200)),
+                        border = BorderStroke(1.dp, Color(0xFFFFB300).copy(0.4f)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
+                            Text("⚡", fontSize = 16.sp)
+                            Spacer(Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    "Gemini Free Tier Limits",
+                                    color = Color(0xFFFFB300),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    "• 15 requests/minute (RPM)\n" +
+                                    "• 1,500 requests/day (RPD)\n" +
+                                    "• Daily quota resets at midnight Pacific Time\n\n" +
+                                    "Your Groq fallback (Llama 3.3 70B) is automatically handling requests while Gemini is rate limited. No action needed.",
+                                    color = FJTextSecondary,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             // ── GROQ SECTION ──
@@ -127,8 +160,64 @@ fun AdminApiManagementScreen(
                     onSave = viewModel::saveGroqKey,
                     onDelete = viewModel::deleteGroqKey,
                     onTest = viewModel::testGroqConnection,
-                    onLiveTest = { showLiveTestProvider = "Groq" }
+                    onLiveTest = { showLiveTestProvider = "Groq" },
+                    onClearStatus = viewModel::clearGroqStatus
                 )
+            }
+
+            // ── ELEVENLABS SECTION ──
+            item {
+                ApiKeySection(
+                    title = "ElevenLabs API",
+                    subtitle = "Voice Synthesis — Multilingual v2",
+                    badgeText = "VOICE TTS",
+                    badgeColor = Color(0xFFE91E63), // Pinkish for voice
+                    keyInput = uiState.elevenLabsKeyInput,
+                    keyVisible = uiState.elevenLabsKeyVisible,
+                    isKeySaved = uiState.isElevenLabsKeySaved,
+                    status = uiState.elevenLabsStatus,
+                    statusMessage = uiState.elevenLabsStatusMessage,
+                    isTesting = uiState.isTestingElevenLabs,
+                    placeholder = "eleven_...",
+                    getKeyUrl = "elevenlabs.io",
+                    onKeyChanged = viewModel::onElevenLabsKeyChanged,
+                    onToggleVisibility = viewModel::toggleElevenLabsKeyVisibility,
+                    onSave = viewModel::saveElevenLabsKey,
+                    onDelete = viewModel::deleteElevenLabsKey,
+                    onTest = viewModel::testElevenLabsConnection,
+                    onLiveTest = { /* Not needed for TTS */ },
+                    onClearStatus = viewModel::clearElevenLabsStatus
+                )
+            }
+
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1215)),
+                    border = BorderStroke(1.dp, Color(0xFFE91E63).copy(0.4f)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
+                        Text("🎤", fontSize = 16.sp)
+                        Spacer(Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                "ElevenLabs Free Tier Info",
+                                color = Color(0xFFE91E63),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "• 10,000 characters/month (refills monthly)\n" +
+                                "• Standard API access to all voices\n" +
+                                "• Attribution required for free tier usage\n\n" +
+                                "The app automatically falls back to local Android TTS if quota is exceeded or key is missing.",
+                                color = FJTextSecondary,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -161,7 +250,8 @@ private fun ApiKeySection(
     onSave: () -> Unit,
     onDelete: () -> Unit,
     onTest: () -> Unit,
-    onLiveTest: () -> Unit
+    onLiveTest: () -> Unit,
+    onClearStatus: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -349,14 +439,17 @@ private fun ApiKeySection(
             if (statusMessage.isNotBlank()) {
                 Spacer(Modifier.height(8.dp))
                 val msgColor = when (status) {
-                    "ONLINE" -> FJSuccess
+                    "ONLINE"       -> FJSuccess
                     "RATE_LIMITED" -> Color(0xFFFFB300)
-                    "ERROR" -> FJError
-                    else -> FJTextSecondary
+                    "ERROR"        -> FJError
+                    else           -> FJTextSecondary
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Icon(
-                        if (status == "ONLINE") Icons.Default.CheckCircle else Icons.Default.Info,
+                        if (status == "ONLINE") Icons.Default.CheckCircle else Icons.Default.Warning,
                         null,
                         modifier = Modifier.size(14.dp),
                         tint = msgColor
@@ -366,8 +459,19 @@ private fun ApiKeySection(
                         statusMessage,
                         color = msgColor,
                         style = MaterialTheme.typography.bodySmall,
-                        fontSize = 11.sp
+                        fontSize = 11.sp,
+                        modifier = Modifier.weight(1f)
                     )
+                    // Show "Clear" button for stuck error/rate-limited states
+                    if (status == "RATE_LIMITED" || status == "ERROR") {
+                        TextButton(
+                            onClick = onClearStatus,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                            modifier = Modifier.height(28.dp)
+                        ) {
+                            Text("Clear", color = FJTextSecondary, fontSize = 11.sp)
+                        }
+                    }
                 }
             }
         }

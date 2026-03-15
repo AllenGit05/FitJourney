@@ -25,4 +25,5 @@ interface AuthRepository {
         newPassword: String
     ): Result<Unit>
     suspend fun reAuthenticate(email: String, password: String): Result<Unit>
+    suspend fun recoverAccount(email: String, password: String): Result<User>
 }

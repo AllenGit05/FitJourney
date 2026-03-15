@@ -53,7 +53,7 @@ class SyncManager(
                 if (session.isDeleted) {
                     firestore.collection(FirestoreSchema.USERS).document(userId)
                         .collection(FirestoreSchema.WORKOUTS).document(session.id).delete().await()
-                    // Specific delete should be handled in DAO, for now keeping as is but fixing loop
+                    db.workoutDao().deleteSessionById(session.id)
                 } else {
                     firestore.collection(FirestoreSchema.USERS).document(userId)
                         .collection(FirestoreSchema.WORKOUTS).document(session.id)
@@ -71,6 +71,7 @@ class SyncManager(
                 if (log.isDeleted) {
                     firestore.collection(FirestoreSchema.USERS).document(userId)
                         .collection(FirestoreSchema.DIET_ENTRIES).document(log.id.toString()).delete().await()
+                    db.dietDao().deleteLogById(log.id)
                 } else {
                     firestore.collection(FirestoreSchema.USERS).document(userId)
                         .collection(FirestoreSchema.DIET_ENTRIES).document(log.id.toString())
@@ -88,6 +89,7 @@ class SyncManager(
                 if (entry.isDeleted) {
                     firestore.collection(FirestoreSchema.USERS).document(userId)
                         .collection(FirestoreSchema.WATER_ENTRIES).document(entry.id).delete().await()
+                    db.waterDao().deleteWaterById(entry.id)
                 } else {
                     firestore.collection(FirestoreSchema.USERS).document(userId)
                         .collection(FirestoreSchema.WATER_ENTRIES).document(entry.id)

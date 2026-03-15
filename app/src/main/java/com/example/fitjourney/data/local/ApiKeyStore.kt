@@ -18,6 +18,7 @@ class ApiKeyStore(private val context: Context) {
     companion object {
         private val GEMINI_API_KEY = stringPreferencesKey("gemini_api_key")
         private val GROQ_API_KEY = stringPreferencesKey("groq_api_key")
+        private val ELEVENLABS_API_KEY = stringPreferencesKey("elevenlabs_api_key")
     }
 
     // ── Gemini ──────────────────────────────────────────────
@@ -61,4 +62,21 @@ class ApiKeyStore(private val context: Context) {
             val groq = prefs[GROQ_API_KEY] ?: ""
             gemini.isNotBlank() && groq.isNotBlank()
         }
+
+    // ── ElevenLabs ──────────────────────────────────────────
+    val elevenLabsApiKey: Flow<String> = context.apiKeyDataStore.data
+        .map { it[ELEVENLABS_API_KEY] ?: "" }
+
+    suspend fun getElevenLabsApiKey(): String =
+        context.apiKeyDataStore.data.first()[ELEVENLABS_API_KEY] ?: ""
+
+    suspend fun saveElevenLabsApiKey(key: String) {
+        context.apiKeyDataStore.edit { it[ELEVENLABS_API_KEY] = key.trim() }
+    }
+
+    suspend fun clearElevenLabsApiKey() {
+        context.apiKeyDataStore.edit { it.remove(ELEVENLABS_API_KEY) }
+    }
+
+    fun isElevenLabsKeySet(): Flow<Boolean> = elevenLabsApiKey.map { it.isNotBlank() }
 }

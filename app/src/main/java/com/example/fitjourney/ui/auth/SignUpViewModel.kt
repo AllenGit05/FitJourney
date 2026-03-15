@@ -42,6 +42,9 @@ class SignUpViewModel(
     private val _foodType = MutableStateFlow("")
     val foodType: StateFlow<String> = _foodType.asStateFlow()
 
+    private val _fitnessGoal = MutableStateFlow("")
+    val fitnessGoal: StateFlow<String> = _fitnessGoal.asStateFlow()
+
     private val _password = MutableStateFlow("")
     val password: StateFlow<String> = _password.asStateFlow()
 
@@ -71,6 +74,7 @@ class SignUpViewModel(
     fun setGoalWeight(v: String) { _goalWeight.value = v }
     fun setActivityLevel(v: String) { _activityLevel.value = v }
     fun setFoodType(v: String) { _foodType.value = v }
+    fun setFitnessGoal(v: String) { _fitnessGoal.value = v }
     fun setPassword(v: String) { _password.value = v; _errorMessage.value = null }
     fun setConfirmPassword(v: String) { _confirmPassword.value = v; _errorMessage.value = null }
     fun setBackupPin(v: String) { _backupPin.value = v }
@@ -106,6 +110,8 @@ class SignUpViewModel(
                 return@launch
             }
 
+            val calculatedCalories = calculateCalorieGoal()
+
             val user = User(
                 uid = "mock-uid",
                 email = _email.value,
@@ -118,6 +124,8 @@ class SignUpViewModel(
                 goalWeight = _goalWeight.value,
                 activityLevel = _activityLevel.value,
                 foodType = _foodType.value,
+                fitnessGoal = _fitnessGoal.value,
+                calorieGoal = calculatedCalories,
                 aiCredits = 20
             )
 
@@ -131,6 +139,58 @@ class SignUpViewModel(
                 _errorMessage.value = message
                 onError(message)
             }
+        }
+    }
+
+    fun previewCalorieGoal(): Int = calculateCalorieGoal()
+
+    private fun calculateCalorieGoal(): Int {
+        return try {
+            val weightKg = _weight.value.toDouble()
+            val heightCm = _height.value.toDouble()
+
+            // Calculate age from dob (format: dd/MM/yyyy)
+            val parts = _dob.value.split("/")
+            val birthYear = parts[2].toInt()
+            val birthMonth = parts[1].toInt()
+            val birthDay = parts[0].toInt()
+            val today = java.util.Calendar.getInstance()
+            var age = today.get(java.util.Calendar.YEAR) - birthYear
+            if (today.get(java.util.Calendar.MONTH) + 1 < birthMonth ||
+                (today.get(java.util.Calendar.MONTH) + 1 == birthMonth &&
+                 today.get(java.util.Calendar.DAY_OF_MONTH) < birthDay)) {
+                age--
+            }
+
+            // Mifflin-St Jeor BMR
+            val bmr = if (_gender.value == "Male") {
+                (10 * weightKg) + (6.25 * heightCm) - (5 * age) + 5
+            } else {
+                (10 * weightKg) + (6.25 * heightCm) - (5 * age) - 161
+            }
+
+            // Activity multiplier
+            val tdee = bmr * when (_activityLevel.value) {
+                "Sedentary"  -> 1.2
+                "Low"        -> 1.375
+                "Moderate"   -> 1.55
+                "High"       -> 1.725
+                "Very High"  -> 1.9
+                else         -> 1.55
+            }
+
+            // Adjust based on fitness goal
+            val calorieGoal = when (_fitnessGoal.value) {
+                "Fat Loss"     -> tdee - 500   // 500 kcal deficit
+                "Muscle Gain"  -> tdee + 300   // 300 kcal surplus
+                "Recomp"       -> tdee         // maintenance
+                "Maintain"     -> tdee         // maintenance
+                else           -> tdee
+            }
+
+            calorieGoal.toInt().coerceIn(1200, 4000)
+        } catch (e: Exception) {
+            2000 // safe fallback
         }
     }
 }

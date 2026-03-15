@@ -39,7 +39,10 @@ fun AiVoiceCallScreen(
     val voiceTranscript by viewModel.voiceTranscript.collectAsState()
     
     // Voice Manager persistence
-    val voiceManager = remember { VoiceManager(context) }
+    val app = context.applicationContext as com.example.fitjourney.FitJourneyApplication
+    val voiceManager = remember { 
+        VoiceManager(context, app.container.apiKeyStore) 
+    }
     val isListening by voiceManager.isListening.collectAsState()
     val currentSttText by voiceManager.transcript.collectAsState()
 
@@ -63,10 +66,11 @@ fun AiVoiceCallScreen(
     
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val coachName = when(user?.coachPersona) {
-        "Rex" -> "Coach Rex"
-        "Zen" -> "Zen Master"
+        "Rex"    -> "Coach Rex 💪"
+        "Zen"    -> "Zen Master 🧘"
+        "Arjun"  -> "Coach Arjun 🇮🇳"
         "Custom" -> "My Coach"
-        else -> "Coach Aurora"
+        else     -> "Coach Aurora ✨"
     }
 
     Box(
@@ -214,6 +218,7 @@ fun AiVoiceCallScreen(
                                 voiceManager.stopListening()
                             } else {
                                 if (hasPermission) {
+                                    voiceManager.setRecognitionLocale(user?.coachPersona)
                                     // STOP AI when we start listening
                                     voiceManager.stopSpeaking()
                                     viewModel.setAiSpeaking(false)
@@ -221,7 +226,11 @@ fun AiVoiceCallScreen(
                                     voiceManager.startListening { result ->
                                         viewModel.onVoiceResult(result) { response ->
                                             viewModel.setAiSpeaking(true)
-                                            voiceManager.speakWithPersona(response, user?.coachPersona, user?.coachGender) {
+                                            voiceManager.speakWithElevenLabs(
+                                                text = response,
+                                                persona = user?.coachPersona,
+                                                speakingLanguage = user?.speakingLanguage ?: "en"
+                                            ) {
                                                 viewModel.setAiSpeaking(false)
                                             }
                                         }

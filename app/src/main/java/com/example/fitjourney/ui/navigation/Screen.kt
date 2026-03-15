@@ -32,4 +32,5 @@ sealed class Screen(val route: String) {
     object AdminApiManagement : Screen("admin_api_management")
     object AdminManagement : Screen("admin_management")
     object AdminProfile : Screen("admin_profile")
+    object FirebaseDiagnostic : Screen("firebase_diagnostic")
 }

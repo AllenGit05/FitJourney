@@ -40,6 +40,7 @@ fun SignUpScreen(
     val weight          by viewModel.weight.collectAsState()
     val goalWeight      by viewModel.goalWeight.collectAsState()
     val activityLevel   by viewModel.activityLevel.collectAsState()
+    val fitnessGoal     by viewModel.fitnessGoal.collectAsState()
     val foodType        by viewModel.foodType.collectAsState()
     val password        by viewModel.password.collectAsState()
     val confirmPassword by viewModel.confirmPassword.collectAsState()
@@ -179,9 +180,6 @@ fun SignUpScreen(
             FJTextField(value = weight, onValueChange = viewModel::setWeight, placeholder = "Current Weight (kg)",
                 leadingIcon = { Icon(Icons.Default.FitnessCenter, null, tint = FJTextSecondary) }, keyboardType = KeyboardType.Number)
             Spacer(Modifier.height(12.dp))
-            FJTextField(value = goalWeight, onValueChange = viewModel::setGoalWeight, placeholder = "Goal Weight (kg)",
-                leadingIcon = { Icon(Icons.Default.Flag, null, tint = FJTextSecondary) }, keyboardType = KeyboardType.Number)
-            Spacer(Modifier.height(12.dp))
 
             // Activity Level selector
             FJOptionLabel("Activity Level")
@@ -191,6 +189,54 @@ fun SignUpScreen(
                 selected = activityLevel,
                 onSelect = viewModel::setActivityLevel
             )
+            Spacer(Modifier.height(12.dp))
+
+            // Fitness Goal selector
+            FJOptionLabel("Fitness Goal")
+            Spacer(Modifier.height(8.dp))
+            FJOptionRow(
+                options = listOf("Fat Loss", "Recomp", "Muscle Gain", "Maintain"),
+                selected = fitnessGoal,
+                onSelect = viewModel::setFitnessGoal
+            )
+
+            // Show auto-calculated calories preview
+            if (fitnessGoal.isNotEmpty() && weight.isNotEmpty() &&
+                height.isNotEmpty() && activityLevel.isNotEmpty() && dob.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                val previewCalories = viewModel.previewCalorieGoal()
+                Surface(
+                    color = FJGold.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.LocalFireDepartment,
+                            contentDescription = null,
+                            tint = FJGold,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                "Your Daily Calorie Goal",
+                                color = FJTextSecondary,
+                                fontSize = 11.sp
+                            )
+                            Text(
+                                "$previewCalories kcal / day",
+                                color = FJGold,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
             Spacer(Modifier.height(12.dp))
 
             // Food Type selector

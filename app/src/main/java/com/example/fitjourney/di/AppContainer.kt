@@ -42,7 +42,7 @@ class DefaultAppContainer(private val context: android.content.Context) : AppCon
     private val firestorage: FirebaseStorage by lazy { FirebaseStorage.getInstance() }
 
     override val authRepository: AuthRepository by lazy {
-        AuthRepositoryImpl(context, fireauth, firestore, database.userDao(), adminConfig)
+        AuthRepositoryImpl(context, fireauth, firestore, database.userDao(), adminConfig, database)
     }
     
     override val workoutRepository: com.example.fitjourney.domain.repository.WorkoutRepository by lazy {
@@ -113,18 +113,6 @@ class DefaultAppContainer(private val context: android.content.Context) : AppCon
         com.example.fitjourney.data.local.AdminConfig(context)
     }
 
-    init {
-        // Seed prototype data for testing
-        CoroutineScope(Dispatchers.IO).launch {
-            com.example.fitjourney.data.repository.PrototypeDataSeeder(
-                database.workoutDao(),
-                database.dietDao(),
-                database.stepDao(),
-                database.weightDao(),
-                database.habitDao()
-            ).seedIfNeeded()
-        }
-    }
 }
 
 object AppViewModelProvider {
@@ -191,7 +179,8 @@ object AppViewModelProvider {
                 apiRepository = fitJourneyApplication().container.apiRepository,
                 chatRepository = fitJourneyApplication().container.chatRepository,
                 progressRepository = fitJourneyApplication().container.progressRepository,
-                waterRepository = fitJourneyApplication().container.waterRepository
+                waterRepository = fitJourneyApplication().container.waterRepository,
+                habitRepository = fitJourneyApplication().container.habitRepository
             )
         }
         initializer {
@@ -202,7 +191,9 @@ object AppViewModelProvider {
         }
         initializer {
             com.example.fitjourney.ui.admin.AdminDashboardViewModel(
-                syncManager = fitJourneyApplication().container.syncManager
+                syncManager = fitJourneyApplication().container.syncManager,
+                firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance(),
+                adminConfig = fitJourneyApplication().container.adminConfig
             )
         }
         initializer {
@@ -211,7 +202,10 @@ object AppViewModelProvider {
             )
         }
         initializer {
-            com.example.fitjourney.ui.admin.management.AdminManagementViewModel()
+            com.example.fitjourney.ui.admin.management.AdminManagementViewModel(
+                adminConfig = fitJourneyApplication().container.adminConfig,
+                firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+            )
         }
         initializer {
             com.example.fitjourney.ui.client.insights.WeeklyInsightsViewModel(
@@ -235,6 +229,19 @@ object AppViewModelProvider {
                 waterRepository = fitJourneyApplication().container.waterRepository,
                 progressRepository = fitJourneyApplication().container.progressRepository,
                 apiRepository = fitJourneyApplication().container.apiRepository
+            )
+        }
+        initializer {
+            com.example.fitjourney.ui.admin.diagnostic.FirebaseDiagnosticViewModel(
+                application = fitJourneyApplication(),
+                authRepository = fitJourneyApplication().container.authRepository,
+                workoutRepository = fitJourneyApplication().container.workoutRepository,
+                dietRepository = fitJourneyApplication().container.dietRepository,
+                waterRepository = fitJourneyApplication().container.waterRepository,
+                progressRepository = fitJourneyApplication().container.progressRepository,
+                habitRepository = fitJourneyApplication().container.habitRepository,
+                firebaseStorageRepository = fitJourneyApplication().container.firebaseStorageRepository,
+                syncManager = fitJourneyApplication().container.syncManager
             )
         }
     }

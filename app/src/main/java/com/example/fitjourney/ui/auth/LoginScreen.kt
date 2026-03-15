@@ -114,6 +114,18 @@ fun LoginScreen(
                     fontSize = 13.sp,
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                if (errorMessage?.contains("profile not found") == true) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "💡 Tip: If you previously had an account, your profile may have been " +
+                        "reset. Please sign up again with the same email or contact support.",
+                        color = FJTextSecondary,
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                }
             }
 
             Spacer(Modifier.height(24.dp))

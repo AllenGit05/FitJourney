@@ -5,7 +5,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +33,7 @@ fun AdminDashboardScreen(
     onNavigateToApi: () -> Unit,
     onNavigateToAdmins: () -> Unit,
     onNavigateToProfile: () -> Unit,
+    onNavigateToDiagnostics: () -> Unit,
     onLogout: () -> Unit
 ) {
     val totalClients  by viewModel.totalClients.collectAsState()
@@ -41,9 +50,41 @@ fun AdminDashboardScreen(
                 TopAppBar(
                     title = { Text("Admin Dashboard", color = FJTextPrimary, fontWeight = FontWeight.Bold) },
                     actions = {
+                        var showLogoutDialog by remember { mutableStateOf(false) }
+                        
+                        TextButton(onClick = { showLogoutDialog = true }) {
+                            Icon(
+                                Icons.Default.Logout,
+                                contentDescription = "Logout",
+                                tint = FJError,
+                                modifier = Modifier.size(18.dp)
+                            )
                             Spacer(Modifier.width(4.dp))
-                            Text("Logout", color = FJError, fontSize = 13.sp)
+                            Text("Logout", color = FJError, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
 
+                        if (showLogoutDialog) {
+                            AlertDialog(
+                                onDismissRequest = { showLogoutDialog = false },
+                                containerColor = FJSurface,
+                                title = { Text("Confirm Logout", color = FJTextPrimary, fontWeight = FontWeight.Bold) },
+                                text = { Text("Are you sure you want to log out of the admin panel?", color = FJTextSecondary) },
+                                confirmButton = {
+                                    Button(
+                                        onClick = {
+                                            showLogoutDialog = false
+                                            onLogout()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = FJError)
+                                    ) { Text("Logout", color = Color.White, fontWeight = FontWeight.Bold) }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showLogoutDialog = false }) {
+                                        Text("Cancel", color = FJTextSecondary)
+                                    }
+                                }
+                            )
+                        }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = FJBackground)
                 )
@@ -53,7 +94,24 @@ fun AdminDashboardScreen(
                 modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text("System Overview", color = FJTextSecondary, fontSize = 14.sp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("System Overview", color = FJTextSecondary, fontSize = 14.sp)
+                    IconButton(
+                        onClick = { viewModel.refreshStats() },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = "Refresh",
+                            tint = FJGold,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
 
                 if (isLoading) {
                     Box(Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) {
@@ -72,6 +130,8 @@ fun AdminDashboardScreen(
                     sub = "Configure AI Coach provider keys", onClick = onNavigateToApi)
                 AdminNavCard(icon = Icons.Default.AdminPanelSettings, label = "Manage Admins",
                     sub = "Add or remove admin accounts", onClick = onNavigateToAdmins)
+                AdminNavCard(icon = Icons.Default.LocalFireDepartment, label = "Firebase Diagnostics",
+                    sub = "Run system-wide integration tests", onClick = onNavigateToDiagnostics)
 
                 Text("Cloud Sync", color = FJTextSecondary, fontSize = 14.sp)
                 

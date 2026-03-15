@@ -40,5 +40,6 @@ data class User(
     val coachName: String = "Aurora",
     val lastGreeting: String = "",
     val lastGreetingDate: String = "", // Format: "YYYY-MM-DD"
-    val profilePictureUri: String? = null
+    val profilePictureUri: String? = null,
+    val speakingLanguage: String = "en" // en, hi, ml
 )
