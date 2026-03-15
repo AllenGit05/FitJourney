@@ -11,3 +11,5 @@ class FitJourneyApplication : Application() {
         container = DefaultAppContainer(this)
     }
 }
+
+// Final sync for Admin Routing and Profile Management
