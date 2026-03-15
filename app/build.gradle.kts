@@ -3,14 +3,15 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.google.services)
 }
 
 android {
-    namespace = "com.example.fitjourneyag"
+    namespace = "com.example.fitjourney"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.fitjourneyag"
+        applicationId = "com.example.fitjourney"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
@@ -62,6 +63,14 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.okhttp)
     implementation(libs.gson)
+
+    // Firebase
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore)
+    implementation(libs.firebase.storage)
+    implementation(libs.firebase.analytics)
+    implementation(libs.kotlinx.coroutines.play.services)
 
     // Room
     implementation(libs.room.runtime)

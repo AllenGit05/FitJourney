@@ -16,13 +16,13 @@
         android:label="@string/app_name"
         android:roundIcon="@drawable/app_logo"
         android:supportsRtl="true"
-        android:theme="@style/Theme.FitJourneyAG">
+        android:theme="@style/Theme.FitJourney">
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:windowSoftInputMode="adjustResize"
-            android:theme="@style/Theme.FitJourneyAG">
+            android:theme="@style/Theme.FitJourney">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

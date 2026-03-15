@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:971522219712:android:41730a3700e0d5ad975725",
+        "mobilesdk_app_id": "1:971522219712:android:11fb6735c6c31848975725",
         "android_client_info": {
-          "package_name": "com.example.fitjourneyag"
+          "package_name": "com.example.fitjourney"
         }
       },
       "oauth_client": [],
