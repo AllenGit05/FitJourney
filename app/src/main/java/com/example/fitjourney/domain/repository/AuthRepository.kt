@@ -16,7 +16,6 @@ interface AuthRepository {
     suspend fun recordDailyActivity()
     suspend fun grantXp(amount: Int)
 
-    suspend fun isAdminEmail(email: String): Boolean
     fun isLoggedIn(): Boolean
     fun getCurrentUserEmail(): String?
     suspend fun changeEmail(newEmail: String, currentPassword: String): Result<Unit>

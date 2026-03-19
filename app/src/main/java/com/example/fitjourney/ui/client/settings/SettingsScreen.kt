@@ -46,6 +46,39 @@ fun SettingsScreen(
     val coachPersona  by viewModel.coachPersona.collectAsState()
     val customCoachPersona by viewModel.customCoachPersona.collectAsState()
     val isLoading     by viewModel.isLoading.collectAsState()
+    val exportStatus  by viewModel.exportStatus.collectAsState()
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    LaunchedEffect(exportStatus) {
+        when (val status = exportStatus) {
+            is SettingsViewModel.ExportStatus.Success -> {
+                val result = snackbarHostState.showSnackbar(
+                    message = "Export completed successfully!",
+                    actionLabel = "Open",
+                    duration = SnackbarDuration.Long
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                        setDataAndType(status.uri, "application/zip")
+                        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    try {
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        snackbarHostState.showSnackbar("No app found to open ZIP file")
+                    }
+                }
+                viewModel.resetExportStatus()
+            }
+            is SettingsViewModel.ExportStatus.Error -> {
+                snackbarHostState.showSnackbar(status.message)
+                viewModel.resetExportStatus()
+            }
+            else -> {}
+        }
+    }
 
     var showDatePicker by remember { mutableStateOf(false) }
     val datePickerState = rememberDatePickerState()
@@ -59,6 +92,7 @@ fun SettingsScreen(
 
     Scaffold(
         containerColor = FJBackground,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Settings", color = FJTextPrimary, fontWeight = FontWeight.Bold) },
@@ -326,6 +360,129 @@ fun SettingsScreen(
                     selected = foodType,
                     onSelect = viewModel::setFoodType
                 )
+            }
+
+            // ── Section: Reminders ─────────────────────────────
+            val reminderEnabled by viewModel.reminderEnabled.collectAsState()
+            val reminderTime    by viewModel.reminderTime.collectAsState()
+            val context = androidx.compose.ui.platform.LocalContext.current
+
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                FJSectionLabel("Reminders")
+                
+                Surface(
+                    color = FJSurface,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.NotificationsActive, null, tint = FJGold)
+                            Spacer(Modifier.width(12.dp))
+                            Text("Daily Workout Reminder", color = FJTextPrimary, modifier = Modifier.weight(1f))
+                            Switch(
+                                checked = reminderEnabled,
+                                onCheckedChange = { viewModel.setReminderEnabled(it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = FJGold, 
+                                    checkedTrackColor = FJGold.copy(0.3f),
+                                    uncheckedThumbColor = FJTextSecondary,
+                                    uncheckedTrackColor = FJSurface
+                                )
+                            )
+                        }
+                        
+                        if (reminderEnabled) {
+                            HorizontalDivider(Modifier.padding(vertical = 12.dp), color = FJBackground)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        val parts = reminderTime.split(":")
+                                        val hour = parts[0].toIntOrNull() ?: 8
+                                        val minute = parts[1].toIntOrNull() ?: 0
+                                        android.app.TimePickerDialog(context, { _, h, m ->
+                                            viewModel.setReminderTime(String.format("%02d:%02d", h, m))
+                                        }, hour, minute, true).show()
+                                    },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Schedule, null, tint = FJTextSecondary)
+                                Spacer(Modifier.width(12.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text("Reminder Time", color = FJTextPrimary, fontSize = 14.sp)
+                                    Text(reminderTime, color = FJGold, fontWeight = FontWeight.Bold)
+                                }
+                                Icon(Icons.Default.ChevronRight, null, tint = FJTextSecondary)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Section: Privacy ─────────────────────────────
+            val biometricEnabled by viewModel.biometricLockEnabled.collectAsState()
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                FJSectionLabel("Privacy & Security")
+                
+                Surface(
+                    color = FJSurface,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(androidx.compose.material.icons.Icons.Default.Lock, null, tint = FJGold)
+                        Spacer(Modifier.width(12.dp))
+                        Text("Lock with biometrics", color = FJTextPrimary, modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = biometricEnabled,
+                            onCheckedChange = { viewModel.setBiometricLockEnabled(it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = FJGold, 
+                                checkedTrackColor = FJGold.copy(0.3f),
+                                uncheckedThumbColor = FJTextSecondary,
+                                uncheckedTrackColor = FJSurface
+                            )
+                        )
+                    }
+                }
+            }
+
+            // ── Section: Data & Privacy ─────────────────────────
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                FJSectionLabel("Data & Privacy")
+                
+                Surface(
+                    color = FJSurface,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Download, null, tint = FJGold)
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Export my data", color = FJTextPrimary, fontWeight = FontWeight.Bold)
+                            Text("CSV history in a ZIP file", color = FJTextSecondary, fontSize = 12.sp)
+                        }
+                        
+                        if (exportStatus is SettingsViewModel.ExportStatus.Exporting) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = FJGold, strokeWidth = 2.dp)
+                        } else {
+                            TextButton(
+                                onClick = { viewModel.exportData() },
+                                colors = ButtonDefaults.textButtonColors(contentColor = FJGold)
+                            ) {
+                                Text("EXPORT", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
             }
 
             // ── Section: Subscription & Credits ──────────────────

@@ -5,6 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.fitjourney.domain.model.*
 import com.example.fitjourney.domain.repository.WorkoutRepository
 import com.example.fitjourney.domain.repository.UserRepository
+import com.example.fitjourney.domain.repository.ApiRepository
+import org.json.JSONObject
+import org.json.JSONArray
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -19,7 +22,8 @@ sealed class GeneratorUiState {
 
 class WorkoutGeneratorViewModel(
     private val workoutRepository: WorkoutRepository,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val apiRepository: ApiRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<GeneratorUiState>(GeneratorUiState.Input)
@@ -40,7 +44,7 @@ class WorkoutGeneratorViewModel(
         viewModelScope.launch {
             val user = currentUser.value ?: return@launch
             
-            // Deduct 3 credits
+            // Initial check for credits
             if (!user.isPremium && user.aiCredits < 3) {
                 _uiState.value = GeneratorUiState.Error("Insufficient credits. 3 credits required for plan generation.")
                 return@launch
@@ -48,17 +52,89 @@ class WorkoutGeneratorViewModel(
 
             _uiState.value = GeneratorUiState.Loading
             
-            val success = userRepository.updateCredits(3)
-            if (!success && !user.isPremium) {
-                _uiState.value = GeneratorUiState.Error("Credit deduction failed. Please check your balance.")
-                return@launch
-            }
+            val prompt = """
+                Generate a professional weekly workout plan based on these preferences:
+                - Goal: $goal
+                - Experience Level: $level
+                - Workout Location: $location
+                - Available Equipment: $equipment
+                - Frequency: $daysPerWeek days per week
+                - Session Duration: $durationMinutes minutes
+                
+                IMPORTANT: Return ONLY a raw JSON object with no markdown formatting, no code blocks, and no extra text.
+                The JSON must strictly follow this structure:
+                {
+                  "weeklySchedule": [
+                    {
+                      "dayName": "Day 1: [Focus Area]",
+                      "exercises": [
+                        {
+                          "name": "Exercise Name",
+                          "sets": 3,
+                          "reps": "10-12",
+                          "restTimeSeconds": 60
+                        }
+                      ]
+                    }
+                  ]
+                }
+            """.trimIndent()
 
-            // Simulate AI API Call
-            delay(2000)
-            
-            val generatedPlan = simulateAiResponse()
-            _uiState.value = GeneratorUiState.Success(generatedPlan)
+            try {
+                val response = apiRepository.generateContent(prompt)
+                val cleanResponse = response.trim()
+                    .removePrefix("```json")
+                    .removeSuffix("```")
+                    .trim()
+                
+                val workoutDays = try {
+                    val jsonObject = JSONObject(cleanResponse)
+                    val scheduleArray = jsonObject.getJSONArray("weeklySchedule")
+                    val days = mutableListOf<WorkoutDay>()
+                    
+                    for (i in 0 until scheduleArray.length()) {
+                        val dayObj = scheduleArray.getJSONObject(i)
+                        val dayName = dayObj.getString("dayName")
+                        val exercisesArray = dayObj.getJSONArray("exercises")
+                        val exercises = mutableListOf<PlanExercise>()
+                        
+                        for (j in 0 until exercisesArray.length()) {
+                            val exObj = exercisesArray.getJSONObject(j)
+                            exercises.add(PlanExercise(
+                                name = exObj.getString("name"),
+                                sets = exObj.getInt("sets"),
+                                reps = exObj.getString("reps"),
+                                restTimeSeconds = exObj.getInt("restTimeSeconds")
+                            ))
+                        }
+                        days.add(WorkoutDay(dayName, exercises))
+                    }
+                    days
+                } catch (e: Exception) {
+                    _uiState.value = GeneratorUiState.Error("Could not parse workout plan. Please try again.")
+                    return@launch
+                }
+                
+                val generatedPlan = WeeklyWorkoutPlan(
+                    goal = goal,
+                    level = level,
+                    location = location,
+                    daysPerWeek = daysPerWeek,
+                    durationMinutes = durationMinutes,
+                    weeklySchedule = workoutDays
+                )
+                
+                // Deduct 3 credits ONLY after successful parse
+                val deductionSuccess = userRepository.updateCredits(3)
+                if (!deductionSuccess && !user.isPremium) {
+                    _uiState.value = GeneratorUiState.Error("Plan generated but credit deduction failed. Please check your balance.")
+                    return@launch
+                }
+
+                _uiState.value = GeneratorUiState.Success(generatedPlan)
+            } catch (e: Exception) {
+                _uiState.value = GeneratorUiState.Error("Generation failed: ${e.localizedMessage ?: "Unknown error"}")
+            }
         }
     }
 
@@ -69,27 +145,6 @@ class WorkoutGeneratorViewModel(
         }
     }
 
-    private fun simulateAiResponse(): WeeklyWorkoutPlan {
-        val days = (1..daysPerWeek).map { i ->
-            WorkoutDay(
-                dayName = "Day $i: ${if (i % 2 == 0) "Lower Body" else "Upper Body"}",
-                exercises = listOf(
-                    PlanExercise("Push Ups", 3, "12-15", 60),
-                    PlanExercise("Squats", 3, "10-12", 90),
-                    PlanExercise("Plank", 3, "45s", 45)
-                )
-            )
-        }
-        
-        return WeeklyWorkoutPlan(
-            goal = goal,
-            level = level,
-            location = location,
-            daysPerWeek = daysPerWeek,
-            durationMinutes = durationMinutes,
-            weeklySchedule = days
-        )
-    }
 
     fun reset() {
         _uiState.value = GeneratorUiState.Input

@@ -65,7 +65,7 @@ class FirebaseDiagnosticViewModel(
         "AUTH — Profile Reload After Update" to "GROUP 1 — FIREBASE AUTH",
         "AUTH — Record Daily Activity" to "GROUP 1 — FIREBASE AUTH",
         "AUTH — Grant XP" to "GROUP 1 — FIREBASE AUTH",
-        "AUTH — isAdminEmail check" to "GROUP 1 — FIREBASE AUTH",
+        "AUTH — Grant XP" to "GROUP 1 — FIREBASE AUTH",
         "AUTH — isLoggedIn" to "GROUP 1 — FIREBASE AUTH",
         "AUTH — Change Password" to "GROUP 1 — FIREBASE AUTH",
         "AUTH — Login With New Password" to "GROUP 1 — FIREBASE AUTH",
@@ -209,11 +209,6 @@ class FirebaseDiagnosticViewModel(
                 }
             }
 
-            executeTest("AUTH — isAdminEmail check") {
-                val isAdmin = authRepository.isAdminEmail(testEmail)
-                if (!isAdmin) TestResultStatus.Pass("isAdminEmail returned false as expected")
-                else TestResultStatus.Fail("isAdminEmail returned true, expected false")
-            }
 
             executeTest("AUTH — isLoggedIn") {
                 val loggedIn = authRepository.isLoggedIn()

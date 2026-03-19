@@ -9,6 +9,7 @@ data class Habit(
     val currentStreak: Int = 0,
     val bestStreak: Int = 0,
     val isCompletedToday: Boolean = false,
+    val freezesUsedThisWeek: Int = 0,
     val logs: List<HabitLog> = emptyList()
 )
 

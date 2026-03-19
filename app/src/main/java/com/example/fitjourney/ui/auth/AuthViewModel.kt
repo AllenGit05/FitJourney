@@ -59,7 +59,7 @@ class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
             _isLoading.value = false
 
             result.onSuccess { user ->
-                val isAdmin = authRepository.isAdminEmail(_email.value)
+                val isAdmin = user.role == UserRole.ADMIN
                 _isAdmin.value = isAdmin
                 if (isAdmin) {
                     _navigateToAdmin.value = true

@@ -63,6 +63,8 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.okhttp)
     implementation(libs.gson)
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+    implementation("androidx.biometric:biometric:1.1.0")
 
     // Firebase
     implementation(platform(libs.firebase.bom))

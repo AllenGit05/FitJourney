@@ -29,6 +29,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import com.example.fitjourney.ui.theme.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.drawscope.Stroke
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,6 +46,9 @@ fun DietTrackingScreen(
     val dinner        by viewModel.dinnerLogs.collectAsState(initial = emptyList())
     val snacks        by viewModel.snackLogs.collectAsState(initial = emptyList())
     val recentFoods   by viewModel.recentFoods.collectAsState(initial = emptyList())
+    val totalProteinLocal by viewModel.totalProtein.collectAsState()
+    val totalCarbs by viewModel.totalCarbs.collectAsState()
+    val totalFats by viewModel.totalFats.collectAsState()
 
     var showDialog by remember { mutableStateOf(false) }
     var selectedMealType by remember { mutableStateOf("Breakfast") }
@@ -99,6 +105,44 @@ fun DietTrackingScreen(
                             SummaryMetric("Calories", "$totalCalories", "kcal", Modifier.weight(1f))
                             SummaryMetric("Protein", "$totalProtein", "g", Modifier.weight(1f))
                         }
+                    }
+                }
+            }
+
+            // ── Macro Breakdown Donut ──────────────────────────
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = FJSurface),
+                    shape = RoundedCornerShape(24.dp)
+                ) {
+                    Column(
+                        Modifier.padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "Macro Distribution", 
+                            color = FJTextPrimary, 
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.align(Alignment.Start)
+                        )
+                        Spacer(Modifier.height(24.dp))
+                        
+                        MacroDonutChart(
+                            protein = totalProteinLocal,
+                            carbs = totalCarbs,
+                            fats = totalFats,
+                            totalCalories = totalCalories,
+                            modifier = Modifier.size(200.dp)
+                        )
+                        
+                        Spacer(Modifier.height(24.dp))
+                        
+                        MacroLegend(
+                            protein = totalProteinLocal,
+                            carbs = totalCarbs,
+                            fats = totalFats
+                        )
                     }
                 }
             }
@@ -430,4 +474,112 @@ fun AddFoodDialog(
             ) { Text("Save Entry", fontWeight = FontWeight.Bold) }
         }
     )
+}
+
+@Composable
+private fun MacroDonutChart(
+    protein: Int,
+    carbs: Int,
+    fats: Int,
+    totalCalories: Int,
+    modifier: Modifier = Modifier
+) {
+    val totalGrams = (protein + carbs + fats).toFloat().coerceAtLeast(1f)
+    
+    val proteinProportion = protein / totalGrams
+    val carbsProportion = carbs / totalGrams
+    val fatsProportion = fats / totalGrams
+
+    var animationTriggered by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { animationTriggered = true }
+
+    val proteinSweep by animateFloatAsState(
+        targetValue = if (animationTriggered) proteinProportion * 360f else 0f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumLow, stiffness = Spring.StiffnessLow)
+    )
+    val carbsSweep by animateFloatAsState(
+        targetValue = if (animationTriggered) carbsProportion * 360f else 0f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumLow, stiffness = Spring.StiffnessLow)
+    )
+    val fatsSweep by animateFloatAsState(
+        targetValue = if (animationTriggered) fatsProportion * 360f else 0f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumLow, stiffness = Spring.StiffnessLow)
+    )
+
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val strokeWidth = 18.dp.toPx()
+            val innerRadius = (size.minDimension - strokeWidth) / 2
+            
+            // Draw Fats
+            drawArc(
+                color = FJFats,
+                startAngle = -90f,
+                sweepAngle = fatsSweep,
+                useCenter = false,
+                style = Stroke(strokeWidth)
+            )
+            
+            // Draw Carbs
+            drawArc(
+                color = FJCarbs,
+                startAngle = -90f + fatsSweep,
+                sweepAngle = carbsSweep,
+                useCenter = false,
+                style = Stroke(strokeWidth)
+            )
+            
+            // Draw Protein
+            drawArc(
+                color = FJGold,
+                startAngle = -90f + fatsSweep + carbsSweep,
+                sweepAngle = proteinSweep,
+                useCenter = false,
+                style = Stroke(strokeWidth)
+            )
+        }
+        
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "$totalCalories",
+                color = FJTextPrimary,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                text = "kcal",
+                color = FJTextSecondary,
+                fontSize = 12.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun MacroLegend(protein: Int, carbs: Int, fats: Int) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceEvenly
+    ) {
+        LegendItem("Protein", "${protein}g", FJGold)
+        LegendItem("Carbs", "${carbs}g", FJCarbs)
+        LegendItem("Fats", "${fats}g", FJFats)
+    }
+}
+
+@Composable
+private fun LegendItem(label: String, value: String, color: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .background(color)
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(label, color = FJTextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+        }
+        Text(value, color = FJTextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+    }
 }

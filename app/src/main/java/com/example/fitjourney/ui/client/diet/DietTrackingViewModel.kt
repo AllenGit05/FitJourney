@@ -21,6 +21,8 @@ class DietTrackingViewModel(
     val foodLog: StateFlow<List<com.example.fitjourney.domain.repository.FoodLogEntry>> = dietRepository.foodLogs
     val totalCalories: StateFlow<Int> = dietRepository.totalCaloriesToday
     val totalProtein: StateFlow<Int> = dietRepository.totalProteinToday
+    val totalCarbs: StateFlow<Int> = dietRepository.totalCarbsToday
+    val totalFats: StateFlow<Int> = dietRepository.totalFatsToday
 
     val breakfastLogs = foodLog.map { logs -> logs.filter { it.mealType == "Breakfast" } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())

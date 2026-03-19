@@ -53,9 +53,9 @@ class ProgressViewModel(
         }
     }
 
-    fun uploadPhoto(imageUrl: String, weight: Float, note: String) {
+    fun uploadPhoto(imageUri: android.net.Uri, weight: Float, note: String) {
         viewModelScope.launch {
-            progressRepository.addProgressPhoto(imageUrl, weight, note)
+            progressRepository.addProgressPhoto(imageUri, weight, note)
         }
     }
 

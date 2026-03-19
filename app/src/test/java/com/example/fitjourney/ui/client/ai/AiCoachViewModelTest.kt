@@ -6,6 +6,10 @@ import com.example.fitjourney.domain.repository.ApiRepository
 import com.example.fitjourney.domain.repository.DietRepository
 import com.example.fitjourney.domain.repository.UserRepository
 import com.example.fitjourney.domain.repository.WorkoutRepository
+import com.example.fitjourney.domain.repository.ChatRepository
+import com.example.fitjourney.domain.repository.ProgressRepository
+import com.example.fitjourney.domain.repository.WaterRepository
+import com.example.fitjourney.domain.repository.HabitRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +32,10 @@ class AiCoachViewModelTest {
     private val workoutRepository: WorkoutRepository = mock()
     private val dietRepository: DietRepository = mock()
     private val apiRepository: ApiRepository = mock()
+    private val chatRepository: ChatRepository = mock()
+    private val progressRepository: ProgressRepository = mock()
+    private val waterRepository: WaterRepository = mock()
+    private val habitRepository: HabitRepository = mock()
     
     private val apiConfigsFlow = MutableStateFlow<List<ApiConfig>>(emptyList())
     private val userFlow = MutableStateFlow(User(uid = "user1", email = "user@test.com", aiCredits = 10))
@@ -40,6 +48,10 @@ class AiCoachViewModelTest {
         whenever(userRepository.userProfile).thenReturn(userFlow)
         whenever(workoutRepository.workoutHistory).thenReturn(MutableStateFlow(emptyList()))
         whenever(dietRepository.totalCaloriesToday).thenReturn(MutableStateFlow(0))
+        whenever(waterRepository.waterLogs).thenReturn(MutableStateFlow(emptyList()))
+        whenever(progressRepository.weightHistory).thenReturn(MutableStateFlow(emptyList()))
+        whenever(progressRepository.stepsHistory).thenReturn(MutableStateFlow(emptyList()))
+        whenever(habitRepository.habits).thenReturn(MutableStateFlow(emptyList()))
         
         // Mock suspend functions properly
         runBlocking {
@@ -50,7 +62,11 @@ class AiCoachViewModelTest {
             userRepository = userRepository,
             workoutRepository = workoutRepository,
             dietRepository = dietRepository,
-            apiRepository = apiRepository
+            apiRepository = apiRepository,
+            chatRepository = chatRepository,
+            progressRepository = progressRepository,
+            waterRepository = waterRepository,
+            habitRepository = habitRepository
         )
     }
 

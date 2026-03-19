@@ -193,12 +193,21 @@ interface ChatDao {
 
     @Query("UPDATE chat_messages SET isDeleted = 1, isSynced = 0 WHERE id = :id")
     suspend fun softDelete(id: Long)
+
+    @Query("SELECT COUNT(*) FROM chat_messages WHERE userId = :userId")
+    suspend fun getMessageCount(userId: String): Int
+
+    @Query("DELETE FROM chat_messages WHERE userId = :userId AND id IN (SELECT id FROM chat_messages WHERE userId = :userId ORDER BY timestamp ASC LIMIT :limit)")
+    suspend fun deleteOldestMessages(userId: String, limit: Int)
 }
 
 @Dao
 interface HabitDao {
     @Query("SELECT * FROM habits")
     fun getAllHabits(): kotlinx.coroutines.flow.Flow<List<com.example.fitjourney.data.local.entity.HabitEntity>>
+
+    @Query("SELECT * FROM habits WHERE id = :id LIMIT 1")
+    suspend fun getHabitById(id: String): com.example.fitjourney.data.local.entity.HabitEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertHabit(habit: com.example.fitjourney.data.local.entity.HabitEntity)

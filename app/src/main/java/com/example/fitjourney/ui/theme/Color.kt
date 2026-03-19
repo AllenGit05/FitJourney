@@ -16,4 +16,5 @@ val FJDivider      = Color(0xFF333348)   // subtle divider
 
 val FJSuccess = Color(0xFF4CAF50)
 val FJCarbs = Color(0xFF4ECDC4)
+val FJFats = Color(0xFF457B9D)
 val FJSurfaceVariant = Color(0xFF2E2E44)

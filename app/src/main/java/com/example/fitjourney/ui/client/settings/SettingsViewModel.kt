@@ -7,13 +7,37 @@ import com.example.fitjourney.domain.repository.AuthRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
-class SettingsViewModel(private val authRepository: AuthRepository) : ViewModel() {
+class SettingsViewModel(
+    private val authRepository: com.example.fitjourney.domain.repository.AuthRepository,
+    private val userPreferences: com.example.fitjourney.data.local.UserPreferences,
+    private val workoutReminderManager: com.example.fitjourney.data.manager.WorkoutReminderManager,
+    private val exportManager: com.example.fitjourney.data.manager.ExportManager
+) : ViewModel() {
     
-    val currentUser: StateFlow<User?> = authRepository.currentUser
+    val currentUser: StateFlow<com.example.fitjourney.domain.model.User?> = authRepository.currentUser
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val reminderEnabled: StateFlow<Boolean> = userPreferences.workoutReminderEnabled
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    val reminderTime: StateFlow<String> = userPreferences.workoutReminderTime
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "08:00")
+
+    val biometricLockEnabled: StateFlow<Boolean> = userPreferences.biometricLockEnabled
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    sealed class ExportStatus {
+        object Idle : ExportStatus()
+        object Exporting : ExportStatus()
+        data class Success(val uri: android.net.Uri) : ExportStatus()
+        data class Error(val message: String) : ExportStatus()
+    }
+
+    private val _exportStatus = MutableStateFlow<ExportStatus>(ExportStatus.Idle)
+    val exportStatus: StateFlow<ExportStatus> = _exportStatus.asStateFlow()
 
     // Editable state
     private val _username = MutableStateFlow("")
@@ -240,5 +264,56 @@ class SettingsViewModel(private val authRepository: AuthRepository) : ViewModel(
         viewModelScope.launch {
             authRepository.logout()
         }
+    }
+
+    fun setReminderEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferences.setWorkoutReminderEnabled(enabled)
+            if (enabled) {
+                scheduleReminder(reminderTime.value)
+            } else {
+                workoutReminderManager.cancelDailyReminder()
+            }
+        }
+    }
+
+    fun setReminderTime(time: String) {
+        viewModelScope.launch {
+            userPreferences.setWorkoutReminderTime(time)
+            if (reminderEnabled.value) {
+                scheduleReminder(time)
+            }
+        }
+    }
+
+    private fun scheduleReminder(time: String) {
+        val parts = time.split(":")
+        if (parts.size == 2) {
+            val hour = parts[0].toIntOrNull() ?: 8
+            val minute = parts[1].toIntOrNull() ?: 0
+            workoutReminderManager.scheduleDailyReminder(hour, minute)
+        }
+    }
+
+    fun setBiometricLockEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferences.setBiometricLockEnabled(enabled)
+        }
+    }
+
+    fun exportData() {
+        viewModelScope.launch {
+            _exportStatus.value = ExportStatus.Exporting
+            val uri = exportManager.exportAllData()
+            if (uri != null) {
+                _exportStatus.value = ExportStatus.Success(uri)
+            } else {
+                _exportStatus.value = ExportStatus.Error("Export failed")
+            }
+        }
+    }
+
+    fun resetExportStatus() {
+        _exportStatus.value = ExportStatus.Idle
     }
 }

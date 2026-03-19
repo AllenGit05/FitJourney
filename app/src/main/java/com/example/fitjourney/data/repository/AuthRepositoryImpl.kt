@@ -59,12 +59,13 @@ class AuthRepositoryImpl(
             val firebaseUser = authResult.user
                 ?: throw Exception("Login failed. Please try again.")
 
-            // Check if this is the admin email BEFORE touching Firestore
-            val isAdmin = adminConfig.isAdminEmail(email)
+            // Check for admin role via Firebase Custom Claims instead of email comparison
+            val tokenResult = firebaseUser.getIdToken(false).await()
+            val isAdmin = tokenResult.claims["role"] == "admin"
 
             if (isAdmin) {
                 // Admin bypasses Firestore entirely
-                // Create a local admin User object from Firebase Auth only
+                // Create a local admin User object from Firebase Auth and Custom Claims
                 val adminUser = User(
                     uid = firebaseUser.uid,
                     email = firebaseUser.email ?: email,
@@ -354,10 +355,6 @@ class AuthRepositoryImpl(
             profilePictureUri = entity.profilePictureUri,
             speakingLanguage = entity.speakingLanguage
         )
-    }
-
-    override suspend fun isAdminEmail(email: String): Boolean {
-        return adminConfig.isAdminEmail(email)
     }
 
     override fun isLoggedIn(): Boolean {

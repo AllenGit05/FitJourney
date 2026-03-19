@@ -11,6 +11,8 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.atomic.AtomicBoolean
 
 class ClientDashboardViewModel(
     private val workoutRepository: WorkoutRepository,
@@ -21,6 +23,8 @@ class ClientDashboardViewModel(
     private val progressRepository: com.example.fitjourney.domain.repository.ProgressRepository,
     private val apiRepository: com.example.fitjourney.domain.repository.ApiRepository
 ) : ViewModel() {
+    
+    private val _greetingGenerated = AtomicBoolean(false)
     
     val currentUser = userRepository.userProfile
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -88,13 +92,18 @@ class ClientDashboardViewModel(
     init {
         viewModelScope.launch {
             authRepository.recordDailyActivity()
-            generateDailyGreetingAI()
+            if (_greetingGenerated.compareAndSet(false, true)) {
+                generateDailyGreetingAI()
+            }
         }
     }
 
     private fun generateDailyGreetingAI() {
         viewModelScope.launch {
-            val user = currentUser.filterNotNull().first()
+            val user = withTimeoutOrNull(2000) {
+                currentUser.filterNotNull().first()
+            } ?: return@launch
+            
             val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
             val todayStr = dateFormat.format(Date())
 

@@ -145,6 +145,11 @@ private fun HabitItem(habit: Habit, onToggle: () -> Unit, onDelete: () -> Unit) 
                     Icon(Icons.Default.LocalFireDepartment, null, tint = if(habit.currentStreak > 0) Color(0xFFFF9800) else FJTextSecondary, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(4.dp))
                     Text("${habit.currentStreak} day streak", color = FJTextSecondary, fontSize = 12.sp)
+                    
+                    if (habit.freezesUsedThisWeek > 0) {
+                        Spacer(Modifier.width(8.dp))
+                        Text("❄", fontSize = 12.sp)
+                    }
                 }
             }
             Box {

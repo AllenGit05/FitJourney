@@ -117,7 +117,12 @@ fun FitJourneyNavGraph(
             )
         }
 
-        composable(route = Screen.ClientWorkout.route) {
+        composable(
+            route = Screen.ClientWorkout.route,
+            deepLinks = listOf(
+                androidx.navigation.navDeepLink { uriPattern = "fitjourney://workout" }
+            )
+        ) {
             val viewModel: com.example.fitjourney.ui.client.workout.WorkoutTrackingViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
                 factory = AppViewModelProvider.Factory
             )

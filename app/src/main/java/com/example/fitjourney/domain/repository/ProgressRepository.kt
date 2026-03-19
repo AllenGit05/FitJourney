@@ -12,7 +12,7 @@ interface ProgressRepository {
     
     suspend fun logWeight(weight: Float)
     suspend fun logSteps(count: Int)
-    suspend fun addProgressPhoto(imageUrl: String, weight: Float, note: String)
+    suspend fun addProgressPhoto(imageUri: android.net.Uri, weight: Float, note: String)
     suspend fun logMeasurements(waist: Float, chest: Float, arms: Float, hips: Float, legs: Float)
     
     suspend fun deleteWeight(entry: WeightEntry)

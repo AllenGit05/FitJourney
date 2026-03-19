@@ -50,40 +50,20 @@ fun AdminDashboardScreen(
                 TopAppBar(
                     title = { Text("Admin Dashboard", color = FJTextPrimary, fontWeight = FontWeight.Bold) },
                     actions = {
-                        var showLogoutDialog by remember { mutableStateOf(false) }
-                        
-                        TextButton(onClick = { showLogoutDialog = true }) {
-                            Icon(
-                                Icons.Default.Logout,
-                                contentDescription = "Logout",
-                                tint = FJError,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text("Logout", color = FJError, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        }
-
-                        if (showLogoutDialog) {
-                            AlertDialog(
-                                onDismissRequest = { showLogoutDialog = false },
-                                containerColor = FJSurface,
-                                title = { Text("Confirm Logout", color = FJTextPrimary, fontWeight = FontWeight.Bold) },
-                                text = { Text("Are you sure you want to log out of the admin panel?", color = FJTextSecondary) },
-                                confirmButton = {
-                                    Button(
-                                        onClick = {
-                                            showLogoutDialog = false
-                                            onLogout()
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = FJError)
-                                    ) { Text("Logout", color = Color.White, fontWeight = FontWeight.Bold) }
-                                },
-                                dismissButton = {
-                                    TextButton(onClick = { showLogoutDialog = false }) {
-                                        Text("Cancel", color = FJTextSecondary)
-                                    }
-                                }
-                            )
+                        IconButton(
+                            onClick = onLogout,
+                            modifier = Modifier.padding(end = 8.dp).width(90.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.Logout,
+                                    contentDescription = "Logout",
+                                    tint = FJError,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text("Logout", color = FJError, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = FJBackground)

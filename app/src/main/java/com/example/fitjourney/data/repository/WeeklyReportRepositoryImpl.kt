@@ -4,10 +4,9 @@ import com.example.fitjourney.data.local.dao.WeeklyReportDao
 import com.example.fitjourney.data.local.entity.WeeklyReportEntity
 import com.example.fitjourney.domain.model.WeeklyReport
 import com.example.fitjourney.domain.repository.WeeklyReportRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
+import java.io.Closeable
 import com.google.ai.client.generativeai.GenerativeModel
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -19,8 +18,10 @@ import java.util.*
 class WeeklyReportRepositoryImpl(
     private val weeklyReportDao: WeeklyReportDao,
     private val syncManager: com.example.fitjourney.data.sync.SyncManager
-) : WeeklyReportRepository {
-    private val repositoryScope = CoroutineScope(Dispatchers.IO)
+) : WeeklyReportRepository, Closeable {
+    
+    // The scope's lifetime matches the Application lifecycle as this is a singleton in AppContainer.
+    private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override val reports: StateFlow<List<WeeklyReport>> = weeklyReportDao.getAllReports()
         .map { entities -> entities.map { it.toDomain() } }
@@ -34,6 +35,10 @@ class WeeklyReportRepositoryImpl(
     override suspend fun insertReport(report: WeeklyReportEntity) {
         weeklyReportDao.insertReport(report.copy(isSynced = false))
         syncManager.startSync()
+    }
+
+    override fun close() {
+        repositoryScope.cancel()
     }
 
     private fun WeeklyReportEntity.toDomain(): WeeklyReport = WeeklyReport(

@@ -7,4 +7,6 @@ interface ChatRepository {
     fun getMessages(userId: String): Flow<List<ChatMessageEntity>>
     suspend fun saveMessage(message: ChatMessageEntity)
     suspend fun clearHistory(userId: String)
+    suspend fun getMessageCount(userId: String): Int
+    suspend fun pruneHistory(userId: String, limit: Int)
 }

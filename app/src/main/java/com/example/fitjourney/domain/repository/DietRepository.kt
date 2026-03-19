@@ -16,6 +16,8 @@ data class FoodLogEntry(
 interface DietRepository {
     val totalCaloriesToday: StateFlow<Int>
     val totalProteinToday: StateFlow<Int>
+    val totalCarbsToday: StateFlow<Int>
+    val totalFatsToday: StateFlow<Int>
     val foodLogs: StateFlow<List<FoodLogEntry>>
     
     suspend fun addFood(entry: FoodLogEntry)

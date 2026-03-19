@@ -101,8 +101,6 @@ class AiCoachViewModel(
         if (text.isBlank()) return
 
         val user = currentUser.value ?: return
-        
-        
         if (!user.isPremium && user.aiCredits <= 0) {
             _showCreditStore.value = true
             return
@@ -120,19 +118,7 @@ class AiCoachViewModel(
                 repliedToId = replyMsg?.id?.toLongOrNull(),
                 repliedToText = replyMsg?.text
             ))
-            
-            // Deduct 1 credit
-            val success = userRepository.updateCredits(1)
-            if (!success && !user.isPremium) {
-                chatRepository.saveMessage(com.example.fitjourney.data.local.entity.ChatMessageEntity(
-                    text = "You've run out of credits. Please upgrade or buy more to continue chatting!",
-                    isFromUser = false,
-                    userId = user.uid
-                ))
-                _showCreditStore.value = true
-                return@launch
-            }
-
+            pruneHistoryIfNeeded(user.uid)
             _isTyping.value = true
             try {
                 val systemPrompt = buildSystemPrompt(false)
@@ -141,15 +127,22 @@ class AiCoachViewModel(
                 // Process tool calls and clean the response
                 val cleanResponse = processAiResponse(response)
                 
+                // Only deduct credit AFTER a successful API response and processing
+                if (!user.isPremium) {
+                    userRepository.updateCredits(1)
+                }
+
                 // Save AI response to DB
                 chatRepository.saveMessage(com.example.fitjourney.data.local.entity.ChatMessageEntity(
                     text = cleanResponse,
                     isFromUser = false,
                     userId = user.uid
                 ))
+                pruneHistoryIfNeeded(user.uid)
             } catch (e: Exception) {
+                _isTyping.value = false
                 chatRepository.saveMessage(com.example.fitjourney.data.local.entity.ChatMessageEntity(
-                    text = "Error connecting to AI: ${e.message}. Please check your API key or connection.",
+                    text = "I'm having trouble connecting right now. Don't worry, no credits were deducted!",
                     isFromUser = false,
                     userId = user.uid
                 ))
@@ -164,32 +157,38 @@ class AiCoachViewModel(
         if (text.isBlank() || text == "Listening...") return
         
         val user = currentUser.value ?: return
-        viewModelScope.launch {
-            // Deduct credits for voice too (1 credit per interaction)
-            val success = userRepository.updateCredits(1)
-            if (!success && !user.isPremium) {
-                onAiResponse("You've run out of credits. Please upgrade to continue our conversation!")
-                _showCreditStore.value = true
-                return@launch
-            }
+        
+        // Initial credit check before starting
+        if (!user.isPremium && user.aiCredits <= 0) {
+            onAiResponse("You've run out of credits. Please upgrade to continue our conversation!")
+            _showCreditStore.value = true
+            return
+        }
 
+        viewModelScope.launch {
             _isTyping.value = true
             try {
                 // Save user message
                 chatRepository.saveMessage(com.example.fitjourney.data.local.entity.ChatMessageEntity(
                     text = text, isFromUser = true, userId = user.uid
                 ))
+                pruneHistoryIfNeeded(user.uid)
 
                 val response = apiRepository.generateContentWithSystem(text, buildSystemPrompt(true))
                 
                 // Process tool calls and clean the response
                 val cleanResponse = processAiResponse(response)
                 
+                // Only deduct credit AFTER a successful API response and processing
+                if (!user.isPremium) {
+                    userRepository.updateCredits(1)
+                }
+
                 // Save AI response
                 chatRepository.saveMessage(com.example.fitjourney.data.local.entity.ChatMessageEntity(
                     text = cleanResponse, isFromUser = false, userId = user.uid
                 ))
-                
+                pruneHistoryIfNeeded(user.uid)
                 onAiResponse(cleanResponse)
             } catch (e: Exception) {
                 onAiResponse("Sorry, I had a technical hiccup: ${e.message}")
@@ -437,6 +436,7 @@ class AiCoachViewModel(
                 isFromUser = false,
                 userId = user.uid
             ))
+            pruneHistoryIfNeeded(user.uid)
         }
     }
 
@@ -691,7 +691,18 @@ class AiCoachViewModel(
                             userId = user.uid
                         )
                     )
+                    pruneHistoryIfNeeded(user.uid)
                 }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+    private suspend fun pruneHistoryIfNeeded(userId: String) {
+        try {
+            val count = chatRepository.getMessageCount(userId)
+            if (count > 50) {
+                chatRepository.pruneHistory(userId, count - 50)
             }
         } catch (e: Exception) {
             e.printStackTrace()

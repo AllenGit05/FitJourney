@@ -34,9 +34,5 @@ class AdminConfig(private val context: Context) {
         }
     }
 
-    // Check if a given email is the admin email
-    suspend fun isAdminEmail(email: String): Boolean {
-        val adminEmail = getAdminEmail()
-        return email.trim().lowercase() == adminEmail.lowercase()
     }
 }

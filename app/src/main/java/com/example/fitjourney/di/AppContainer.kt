@@ -30,6 +30,9 @@ interface AppContainer {
     val syncManager: com.example.fitjourney.data.sync.SyncManager
     val firebaseStorageRepository: com.example.fitjourney.data.remote.FirebaseStorageRepository
     val adminConfig: com.example.fitjourney.data.local.AdminConfig
+    val userPreferences: com.example.fitjourney.data.local.UserPreferences
+    val workoutReminderManager: com.example.fitjourney.data.manager.WorkoutReminderManager
+    val exportManager: com.example.fitjourney.data.manager.ExportManager
 }
 
 class DefaultAppContainer(private val context: android.content.Context) : AppContainer {
@@ -113,6 +116,17 @@ class DefaultAppContainer(private val context: android.content.Context) : AppCon
         com.example.fitjourney.data.local.AdminConfig(context)
     }
 
+    override val userPreferences: com.example.fitjourney.data.local.UserPreferences by lazy {
+        com.example.fitjourney.data.local.UserPreferences(context)
+    }
+
+    override val workoutReminderManager: com.example.fitjourney.data.manager.WorkoutReminderManager by lazy {
+        com.example.fitjourney.data.manager.WorkoutReminderManager(context)
+    }
+
+    override val exportManager: com.example.fitjourney.data.manager.ExportManager by lazy {
+        com.example.fitjourney.data.manager.ExportManager(context, workoutRepository, dietRepository, progressRepository, waterRepository)
+    }
 }
 
 object AppViewModelProvider {
@@ -169,7 +183,12 @@ object AppViewModelProvider {
             )
         }
         initializer {
-            com.example.fitjourney.ui.client.settings.SettingsViewModel(authRepository = fitJourneyApplication().container.authRepository)
+            com.example.fitjourney.ui.client.settings.SettingsViewModel(
+                authRepository = fitJourneyApplication().container.authRepository,
+                userPreferences = fitJourneyApplication().container.userPreferences,
+                workoutReminderManager = fitJourneyApplication().container.workoutReminderManager,
+                exportManager = fitJourneyApplication().container.exportManager
+            )
         }
         initializer {
             com.example.fitjourney.ui.client.ai.AiCoachViewModel(
@@ -186,7 +205,8 @@ object AppViewModelProvider {
         initializer {
             com.example.fitjourney.ui.client.workout.generator.WorkoutGeneratorViewModel(
                 workoutRepository = fitJourneyApplication().container.workoutRepository,
-                userRepository = fitJourneyApplication().container.userRepository
+                userRepository = fitJourneyApplication().container.userRepository,
+                apiRepository = fitJourneyApplication().container.apiRepository
             )
         }
         initializer {

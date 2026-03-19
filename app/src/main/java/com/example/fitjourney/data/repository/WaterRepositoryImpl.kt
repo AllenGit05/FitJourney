@@ -4,16 +4,18 @@ import com.example.fitjourney.data.local.dao.WaterDao
 import com.example.fitjourney.data.local.entity.WaterEntity
 import com.example.fitjourney.domain.repository.WaterLogEntry
 import com.example.fitjourney.domain.repository.WaterRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
 import java.util.Calendar
+import java.io.Closeable
 
 class WaterRepositoryImpl(
     private val waterDao: WaterDao,
     private val syncManager: com.example.fitjourney.data.sync.SyncManager
-) : WaterRepository {
+) : WaterRepository, Closeable {
+
+    // The scope's lifetime matches the Application lifecycle as this is a singleton in AppContainer.
+    private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override val waterLogs: Flow<List<WaterLogEntry>> = waterDao.getAllWater()
         .map { entities -> 
@@ -24,11 +26,15 @@ class WaterRepositoryImpl(
         .map { logs ->
             logs.filter { isToday(it.date) }.sumOf { it.ml }
         }
-        .stateIn(CoroutineScope(Dispatchers.IO), SharingStarted.WhileSubscribed(5000), 0)
+        .stateIn(repositoryScope, SharingStarted.WhileSubscribed(5000), 0)
 
     override suspend fun logWater(ml: Int) {
         waterDao.insertWater(WaterEntity(ml = ml, isSynced = false))
         syncManager.startSync()
+    }
+
+    override fun close() {
+        repositoryScope.cancel()
     }
 
     private fun WaterEntity.toDomain() = WaterLogEntry(id = id, date = date, ml = ml)

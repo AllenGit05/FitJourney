@@ -101,8 +101,8 @@ class SignUpViewModel(
             _errorMessage.value = null
 
             // Block registration with admin email
-            val isAdmin = adminConfig.isAdminEmail(_email.value)
-            if (isAdmin) {
+            val currentAdminEmail = adminConfig.getAdminEmail()
+            if (_email.value.trim().lowercase() == currentAdminEmail.lowercase()) {
                 val msg = "This email is reserved for administration. Please use a different email."
                 _errorMessage.value = msg
                 onError(msg)

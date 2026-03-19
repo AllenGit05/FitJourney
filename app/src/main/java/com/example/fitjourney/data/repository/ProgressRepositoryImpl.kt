@@ -3,9 +3,9 @@ package com.example.fitjourney.data.repository
 import com.example.fitjourney.domain.model.ProgressPhoto
 import com.example.fitjourney.domain.model.WeightEntry
 import com.example.fitjourney.domain.repository.ProgressRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import java.io.Closeable
 
 class ProgressRepositoryImpl(
     private val stepsDao: com.example.fitjourney.data.local.dao.StepsDao,
@@ -13,27 +13,30 @@ class ProgressRepositoryImpl(
     private val photoDao: com.example.fitjourney.data.local.dao.PhotoDao,
     private val bodyMeasurementDao: com.example.fitjourney.data.local.dao.BodyMeasurementDao,
     private val storageRepo: com.example.fitjourney.data.remote.FirebaseStorageRepository,
-    private val auth: com.google.firebase.auth.FirebaseAuth,
+    private val fireauth: com.google.firebase.auth.FirebaseAuth,
     private val syncManager: com.example.fitjourney.data.sync.SyncManager
-) : ProgressRepository {
+) : ProgressRepository, Closeable {
+
+    // The scope's lifetime matches the Application lifecycle as this is a singleton in AppContainer.
+    private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override val weightHistory: StateFlow<List<WeightEntry>> = weightDao.getAllWeight()
         .map { entities -> entities.map { it.toDomain() } }
-        .stateIn(CoroutineScope(Dispatchers.IO), SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(repositoryScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     override val progressPhotos: StateFlow<List<ProgressPhoto>> = photoDao.getAllPhotos()
         .map { entities -> entities.map { it.toDomain() } }
-        .stateIn(CoroutineScope(Dispatchers.IO), SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(repositoryScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     override val stepsHistory: StateFlow<List<com.example.fitjourney.domain.model.StepsEntry>> = stepsDao.getAllSteps()
         .map { entities -> 
             entities.map { com.example.fitjourney.domain.model.StepsEntry(id = it.id, date = it.date, count = it.count) }
         }
-        .stateIn(CoroutineScope(Dispatchers.IO), SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(repositoryScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     override val bodyMeasurements: StateFlow<List<com.example.fitjourney.domain.model.BodyMeasurement>> = bodyMeasurementDao.getAllMeasurements()
         .map { entities -> entities.map { it.toDomain() } }
-        .stateIn(CoroutineScope(Dispatchers.IO), SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(repositoryScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     override suspend fun logWeight(weight: Float) {
         weightDao.insertWeight(com.example.fitjourney.data.local.entity.WeightEntity(weight = weight, isSynced = false))
@@ -46,15 +49,15 @@ class ProgressRepositoryImpl(
         syncManager.startSync()
     }
 
-    override suspend fun addProgressPhoto(imageUrl: String, weight: Float, note: String) {
-        val userId = auth.currentUser?.uid ?: "anonymous"
+    override suspend fun addProgressPhoto(imageUri: android.net.Uri, weight: Float, note: String) {
+        val userId = fireauth.currentUser?.uid ?: "anonymous"
         val photoId = java.util.UUID.randomUUID().toString()
         
-        // Upload to Cloud (imageUrl here is expected to be a local URI from camera)
+        // Upload to Cloud
         val cloudUrl = try {
-            storageRepo.uploadProgressPhoto(userId, photoId, java.io.File(imageUrl))
+            storageRepo.uploadProgressPhoto(userId, photoId, imageUri)
         } catch (e: Exception) {
-            imageUrl // Fallback to local
+            imageUri.toString() // Fallback to local
         }
 
         photoDao.insertPhoto(com.example.fitjourney.data.local.entity.ProgressPhotoEntity(
@@ -62,7 +65,7 @@ class ProgressRepositoryImpl(
             imageUrl = cloudUrl, 
             weight = weight, 
             note = note,
-            isSynced = cloudUrl != imageUrl
+            isSynced = cloudUrl != imageUri.toString()
         ))
     }
 
@@ -86,7 +89,7 @@ class ProgressRepositoryImpl(
     }
 
     override suspend fun deleteProgressPhoto(photo: ProgressPhoto) {
-        val userId = auth.currentUser?.uid ?: "anonymous"
+        val userId = fireauth.currentUser?.uid ?: "anonymous"
         
         // Delete from Cloud
         storageRepo.deleteProgressPhoto(userId, photo.id)
@@ -98,6 +101,10 @@ class ProgressRepositoryImpl(
     override suspend fun deleteMeasurement(measurement: com.example.fitjourney.domain.model.BodyMeasurement) {
         bodyMeasurementDao.softDelete(measurement.id)
         syncManager.startSync()
+    }
+
+    override fun close() {
+        repositoryScope.cancel()
     }
 
     private fun com.example.fitjourney.data.local.entity.WeightEntity.toDomain() = WeightEntry(id = id, date = date, weight = weight)

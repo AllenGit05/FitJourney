@@ -57,7 +57,7 @@ fun AddWeightDialog(onDismiss: () -> Unit, onAdd: (Float) -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddPhotoDialog(onDismiss: () -> Unit, onAdd: (String, Float, String) -> Unit) {
+fun AddPhotoDialog(onDismiss: () -> Unit, onAdd: (android.net.Uri, Float, String) -> Unit) {
     var imageUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var weight by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
@@ -180,7 +180,7 @@ fun AddPhotoDialog(onDismiss: () -> Unit, onAdd: (String, Float, String) -> Unit
                 onClick = { 
                     imageUri?.let { uri ->
                         weight.toFloatOrNull()?.let { w ->
-                            onAdd(uri.toString(), w, note)
+                            onAdd(uri, w, note)
                         }
                     }
                 },

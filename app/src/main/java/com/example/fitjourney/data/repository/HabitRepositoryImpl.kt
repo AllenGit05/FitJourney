@@ -5,17 +5,18 @@ import com.example.fitjourney.data.local.entity.HabitEntity
 import com.example.fitjourney.domain.model.Habit
 import com.example.fitjourney.domain.model.HabitLog
 import com.example.fitjourney.domain.repository.HabitRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
 import java.util.*
+import java.io.Closeable
 
 class HabitRepositoryImpl(
     private val habitDao: HabitDao,
     private val syncManager: com.example.fitjourney.data.sync.SyncManager
-) : HabitRepository {
-    private val repositoryScope = CoroutineScope(Dispatchers.IO)
+) : HabitRepository, Closeable {
+    
+    // The scope's lifetime matches the Application lifecycle as this is a singleton in AppContainer.
+    private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override val habits: StateFlow<List<Habit>> = habitDao.getAllHabits()
         .map { entities -> entities.map { it.toDomain() } }
@@ -42,6 +43,18 @@ class HabitRepositoryImpl(
 
     override suspend fun toggleHabit(habitId: String, date: Long) {
         val habit = habits.value.find { it.id == habitId } ?: return
+        val entity = habitDao.getHabitById(habitId) ?: return 
+        
+        // Weekly Reset Check
+        val currentWeek = getWeekString()
+        var freezesUsed = entity.freezesUsedThisWeek
+        var resetWeek = entity.lastFreezeResetDate
+        
+        if (resetWeek != currentWeek) {
+            freezesUsed = 0
+            resetWeek = currentWeek
+        }
+
         val today = isSameDay(date, System.currentTimeMillis())
         val existingLog = habit.logs.find { isSameDay(it.date, date) }
         
@@ -51,17 +64,28 @@ class HabitRepositoryImpl(
             habit.logs + HabitLog(date = date)
         }
 
-        // Recalculate streak
-        val streak = calculateStreak(newLogs)
+        // Recalculate streak with freeze
+        val (streak, usedFreezesInCalculation) = calculateStreak(newLogs)
         
         val updatedHabit = habit.copy(
             logs = newLogs,
             isCompletedToday = if (today) existingLog == null else habit.isCompletedToday,
             currentStreak = streak,
-            bestStreak = if (streak > habit.bestStreak) streak else habit.bestStreak
+            bestStreak = if (streak > habit.bestStreak) streak else habit.bestStreak,
+            freezesUsedThisWeek = usedFreezesInCalculation
         )
-        habitDao.insertHabit(updatedHabit.toEntity().copy(isSynced = false))
+        
+        habitDao.insertHabit(updatedHabit.toEntity().copy(
+            isSynced = false,
+            freezesUsedThisWeek = usedFreezesInCalculation,
+            lastFreezeResetDate = resetWeek
+        ))
         syncManager.startSync()
+    }
+
+    private fun getWeekString(): String {
+        val cal = Calendar.getInstance()
+        return "${cal.get(Calendar.YEAR)}-${cal.get(Calendar.WEEK_OF_YEAR)}"
     }
 
     override suspend fun addHabit(name: String, icon: String) {
@@ -75,6 +99,10 @@ class HabitRepositoryImpl(
         syncManager.startSync()
     }
 
+    override fun close() {
+        repositoryScope.cancel()
+    }
+
     private fun isSameDay(ts1: Long, ts2: Long): Boolean {
         val cal1 = Calendar.getInstance().apply { timeInMillis = ts1 }
         val cal2 = Calendar.getInstance().apply { timeInMillis = ts2 }
@@ -82,11 +110,12 @@ class HabitRepositoryImpl(
                cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR)
     }
 
-    private fun calculateStreak(logs: List<HabitLog>): Int {
-        if (logs.isEmpty()) return 0
+    private fun calculateStreak(logs: List<HabitLog>): Pair<Int, Int> {
+        if (logs.isEmpty()) return Pair(0, 0)
         val sortedDates = logs.map { it.date }.sortedDescending()
         
         var streak = 0
+        var freezesUsed = 0
         val cal = Calendar.getInstance()
         
         val now = System.currentTimeMillis()
@@ -106,10 +135,27 @@ class HabitRepositoryImpl(
                 cal.add(Calendar.DAY_OF_YEAR, -1)
                 currentCheck = cal.timeInMillis
             } else if (date < currentCheck) {
-                break
+                // Check if it's the day before (exactly 1 day gap)
+                cal.timeInMillis = currentCheck
+                cal.add(Calendar.DAY_OF_YEAR, -1)
+                val dayBefore = cal.timeInMillis
+                
+                if (isSameDay(date, dayBefore) && freezesUsed < 1) {
+                    // Use a freeze for the gap
+                    freezesUsed++
+                    streak += 2 // Count both the frozen gap and the current date item
+                    
+                    cal.timeInMillis = dayBefore
+                    cal.add(Calendar.DAY_OF_YEAR, -1)
+                    currentCheck = cal.timeInMillis
+                } else if (isSameDay(date, currentCheck)) {
+                   // Continue
+                } else {
+                    break
+                }
             }
         }
-        return streak
+        return Pair(streak, freezesUsed)
     }
 
     private fun HabitEntity.toDomain(): Habit = Habit(
@@ -119,6 +165,7 @@ class HabitRepositoryImpl(
         currentStreak = currentStreak,
         bestStreak = bestStreak,
         isCompletedToday = isCompletedToday,
+        freezesUsedThisWeek = freezesUsedThisWeek,
         logs = try {
             val listType = object : com.google.gson.reflect.TypeToken<List<HabitLog>>() {}.type
             com.google.gson.Gson().fromJson(logsJson, listType) ?: emptyList()
@@ -132,6 +179,7 @@ class HabitRepositoryImpl(
         currentStreak = currentStreak,
         bestStreak = bestStreak,
         isCompletedToday = isCompletedToday,
+        freezesUsedThisWeek = freezesUsedThisWeek,
         logsJson = com.google.gson.Gson().toJson(logs)
     )
 }
