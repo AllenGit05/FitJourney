@@ -16,18 +16,12 @@ import android.os.Build
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.*
-import android.media.MediaPlayer
-import com.example.fitjourney.data.remote.ElevenLabsClient
-import com.example.fitjourney.data.local.ApiKeyStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.io.File
-import java.io.FileOutputStream
 
 class VoiceManager(
-    private val context: Context,
-    private val apiKeyStore: ApiKeyStore? = null
+    private val context: Context
 ) : RecognitionListener {
 
     private val speechRecognizer: SpeechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
@@ -36,8 +30,6 @@ class VoiceManager(
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private var isSpeakerphoneRequested = false
     private var currentPersona: String? = null
-    private val elevenLabsClient = ElevenLabsClient()
-    private var mediaPlayer: MediaPlayer? = null
     private val voiceScope = CoroutineScope(Dispatchers.IO)
 
     private val _isListening = MutableStateFlow(false)
@@ -94,11 +86,6 @@ class VoiceManager(
 
     fun stopSpeaking() {
         if (isTtsReady) tts?.stop()
-        mediaPlayer?.let {
-            if (it.isPlaying) it.stop()
-            it.release()
-            mediaPlayer = null
-        }
     }
 
     fun speak(text: String, pitch: Float = 1.0f, rate: Float = 1.0f, onFinished: () -> Unit = {}) {
@@ -224,69 +211,6 @@ class VoiceManager(
         currentPersona = persona
     }
 
-    fun speakWithElevenLabs(
-        text: String,
-        persona: String?,
-        speakingLanguage: String = "en",
-        onFinished: () -> Unit = {}
-    ) {
-        voiceScope.launch {
-            try {
-                val apiKey = apiKeyStore?.getElevenLabsApiKey() ?: ""
-                if (apiKey.isBlank()) {
-                    // No ElevenLabs key — fall back to Android TTS
-                    val fallbackLocale = when (speakingLanguage) {
-                        "hi" -> java.util.Locale("hi", "IN")
-                        "ml" -> java.util.Locale("ml", "IN")
-                        else -> java.util.Locale.US
-                    }
-                    tts?.language = fallbackLocale
-                    speakWithPersona(text, persona, null, onFinished)
-                    return@launch
-                }
-
-                val audioBytes = elevenLabsClient.synthesize(
-                    apiKey, text, persona, speakingLanguage
-                )
-
-                // Write to temp file and play with MediaPlayer
-                val tempFile = File(context.cacheDir, "coach_speech.mp3")
-                FileOutputStream(tempFile).use { it.write(audioBytes) }
-
-                // Play on main thread
-                kotlinx.coroutines.withContext(Dispatchers.Main) {
-                    mediaPlayer?.release()
-                    mediaPlayer = MediaPlayer().apply {
-                        setDataSource(tempFile.absolutePath)
-                        setAudioAttributes(
-                            android.media.AudioAttributes.Builder()
-                                .setUsage(android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION)
-                                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
-                                .build()
-                        )
-                        prepare()
-                        start()
-                        setOnCompletionListener {
-                            onFinished()
-                            release()
-                            mediaPlayer = null
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                // ElevenLabs failed — fall back to Android TTS silently
-                e.printStackTrace()
-                val fallbackLocale = when (speakingLanguage) {
-                    "hi" -> java.util.Locale("hi", "IN")
-                    "ml" -> java.util.Locale("ml", "IN")
-                    else -> java.util.Locale.US
-                }
-                tts?.language = fallbackLocale
-                speakWithPersona(text, persona, null, onFinished)
-            }
-        }
-    }
-
     fun setSpeakerphone(isOn: Boolean) {
         isSpeakerphoneRequested = isOn
         applyAudioRouting(isOn)
@@ -314,8 +238,6 @@ class VoiceManager(
     }
 
     fun shutdown() {
-        mediaPlayer?.release()
-        mediaPlayer = null
         speechRecognizer.destroy()
         tts?.shutdown()
         // Reset to normal mode and clear routing

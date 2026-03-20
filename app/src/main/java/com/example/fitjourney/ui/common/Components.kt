@@ -26,7 +26,7 @@ fun FJTextField(
     value: String,
     onValueChange: (String) -> Unit,
     placeholder: String,
-    leadingIcon: @Composable (() -> Unit)? = null,
+    leadingIcon: (@Composable () -> Unit)? = null,
     isPassword: Boolean = false,
     keyboardType: KeyboardType = KeyboardType.Text,
     modifier: Modifier = Modifier

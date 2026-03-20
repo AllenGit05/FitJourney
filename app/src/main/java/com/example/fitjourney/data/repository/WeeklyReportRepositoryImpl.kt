@@ -7,12 +7,6 @@ import com.example.fitjourney.domain.repository.WeeklyReportRepository
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import java.io.Closeable
-import com.google.ai.client.generativeai.GenerativeModel
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONObject
 import java.util.*
 
 class WeeklyReportRepositoryImpl(

@@ -52,19 +52,25 @@ class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
     }
 
     fun login(onSuccess: (UserRole) -> Unit, onError: (String) -> Unit) {
+        if (_email.value.isBlank() || _password.value.isBlank()) {
+            _errorMessage.value = "Please enter your email and password."
+            return
+        }
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
-            val result = authRepository.login(_email.value, _password.value)
+            val result = authRepository.login(_email.value.trim(), _password.value)
             _isLoading.value = false
 
             result.onSuccess { user ->
-                val isAdmin = user.role == UserRole.ADMIN
-                _isAdmin.value = isAdmin
-                if (isAdmin) {
-                    _navigateToAdmin.value = true
-                } else {
-                    _navigateToDashboard.value = true
+                _isAdmin.value = user.role == com.example.fitjourney.domain.model.UserRole.ADMIN
+                when (user.role) {
+                    com.example.fitjourney.domain.model.UserRole.ADMIN -> {
+                        _navigateToAdmin.value = true
+                    }
+                    else -> {
+                        _navigateToDashboard.value = true
+                    }
                 }
                 onSuccess(user.role)
             }.onFailure { exception ->

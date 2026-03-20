@@ -55,75 +55,66 @@ class AuthRepositoryImpl(
 
     override suspend fun login(email: String, password: String): Result<User> {
         return try {
-            val authResult = auth.signInWithEmailAndPassword(email, password).await()
+            if (email.isBlank() || password.isBlank()) {
+                throw Exception("Email and password are required.")
+            }
+
+            // Step 1: Authenticate with Firebase Auth
+            val authResult = auth.signInWithEmailAndPassword(
+                email.trim(), password
+            ).await()
+
             val firebaseUser = authResult.user
                 ?: throw Exception("Login failed. Please try again.")
 
-            // Check for admin role via Firebase Custom Claims instead of email comparison
-            val tokenResult = firebaseUser.getIdToken(false).await()
-            val isAdmin = tokenResult.claims["role"] == "admin"
+            // Step 2: Check admin BEFORE touching Firestore
+            val isAdmin = adminConfig.isAdminEmail(email.trim())
 
             if (isAdmin) {
-                // Admin bypasses Firestore entirely
-                // Create a local admin User object from Firebase Auth and Custom Claims
                 val adminUser = User(
                     uid = firebaseUser.uid,
-                    email = firebaseUser.email ?: email,
+                    email = firebaseUser.email ?: email.trim(),
                     username = "Admin",
                     role = UserRole.ADMIN,
                     isPremium = true,
+                    aiCredits = 999,
                     xp = 0,
                     level = 1
                 )
-                // Save to local Room cache
                 userDao.insertUser(mapToEntity(adminUser))
                 _currentUser.value = adminUser
-                Result.success(adminUser)
-            } else {
-                // Regular user — fetch profile from Firestore as normal
-                val doc = firestore.collection(FirestoreSchema.USERS)
-                    .document(firebaseUser.uid).get().await()
-
-                if (!doc.exists()) {
-                    // Firestore doc missing but Auth account exists
-                    // This can happen if Firestore was wiped but Auth was not
-                    // Auto-recreate a basic profile so the user isn't locked out
-                    val recoveredUser = User(
-                        uid = firebaseUser.uid,
-                        email = firebaseUser.email ?: email,
-                        username = firebaseUser.email?.substringBefore("@") ?: "User",
-                        role = UserRole.CLIENT,
-                        isPremium = false,
-                        aiCredits = 10,
-                        stepGoal = 10000,
-                        waterGoal = 2500,
-                        calorieGoal = 2000,
-                        fitnessGoal = "Maintain Weight",
-                        activityLevel = "MODERATE",
-                        foodType = "BALANCED",
-                        coachPersona = "Aurora",
-                        coachName = "Aurora",
-                        coachGender = "Female",
-                        speakingLanguage = "en"
-                    )
-                    // Re-create the Firestore document
-                    firestore.collection(FirestoreSchema.USERS)
-                        .document(firebaseUser.uid)
-                        .set(mapToFirestoreMap(recoveredUser))
-                        .await()
-                    // Save to local Room cache
-                    userDao.insertUser(mapToEntity(recoveredUser))
-                    _currentUser.value = recoveredUser
-                    return Result.success(recoveredUser)
-                }
-
-                val user = mapDocToUser(doc.data!!, firebaseUser.uid, firebaseUser.email!!)
-                userDao.insertUser(mapToEntity(user))
-                _currentUser.value = user
-                Result.success(user)
+                return Result.success(adminUser)
             }
+
+            // Step 3: Regular user — fetch from Firestore
+            val doc = firestore
+                .collection(FirestoreSchema.USERS)
+                .document(firebaseUser.uid)
+                .get()
+                .await()
+
+            if (!doc.exists()) {
+                auth.signOut()
+                throw Exception(
+                    "Account profile not found. Please sign up first."
+                )
+            }
+
+            val user = mapDocToUser(
+                doc.data!!,
+                firebaseUser.uid,
+                firebaseUser.email ?: email.trim()
+            )
+            userDao.insertUser(mapToEntity(user))
+            _currentUser.value = user
+            Result.success(user)
+
+        } catch (e: com.google.firebase.auth.FirebaseAuthInvalidUserException) {
+            Result.failure(Exception("No account found with this email."))
+        } catch (e: com.google.firebase.auth.FirebaseAuthInvalidCredentialsException) {
+            Result.failure(Exception("Incorrect password. Please try again."))
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(e.message ?: "Login failed. Please try again."))
         }
     }
 
@@ -158,11 +149,18 @@ class AuthRepositoryImpl(
         _currentUser.value = null
     }
 
-    override suspend fun resetPassword(email: String, backupPin: String, newPassword: String): Result<Unit> {
+    override suspend fun resetPassword(
+        email: String,
+        backupPin: String,
+        newPassword: String
+    ): Result<Unit> {
         return try {
-            auth.sendPasswordResetEmail(email).await()
+            if (email.isBlank()) throw Exception("Email is required.")
+            auth.sendPasswordResetEmail(email.trim()).await()
             Result.success(Unit)
-        } catch (e: Exception) { Result.failure(e) }
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "Password reset failed."))
+        }
     }
 
     override suspend fun updateUserProfile(user: User): Result<Unit> {
@@ -201,9 +199,11 @@ class AuthRepositoryImpl(
             val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
             val lastDate = sdf.parse(last) ?: return false
             val currentDate = sdf.parse(current) ?: return false
-            val diff = currentDate.time - lastDate.time
-            diff <= 24 * 60 * 60 * 1000L
-        } catch (e: Exception) { false }
+            val diffMs = currentDate.time - lastDate.time
+            diffMs in 1..(24 * 60 * 60 * 1000L)
+        } catch (e: Exception) {
+            false
+        }
     }
 
     private fun mapDocToUser(data: Map<String, Any>, uid: String, email: String): User {
@@ -211,7 +211,11 @@ class AuthRepositoryImpl(
             uid = uid,
             email = email,
             username = data["username"] as? String ?: "User",
-            role = UserRole.valueOf(data["role"] as? String ?: "CLIENT"),
+            role = try {
+                UserRole.valueOf(data["role"] as? String ?: "CLIENT")
+            } catch (e: IllegalArgumentException) {
+                UserRole.CLIENT
+            },
             isPremium = data["isPremium"] as? Boolean ?: false,
             aiCredits = (data["aiCredits"] as? Long)?.toInt() ?: 10,
             dailyAiMessagesCount = (data["dailyAiMessagesCount"] as? Long)?.toInt() ?: 0,

@@ -10,10 +10,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 class AdminDashboardViewModel(
-    private val syncManager: SyncManager? = null,
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
-    private val adminConfig: AdminConfig? = null
+    private val syncManager: SyncManager? = null
 ) : ViewModel() {
+
+    private val firestore = FirebaseFirestore.getInstance()
 
     private val _totalClients = MutableStateFlow(0)
     val totalClients: StateFlow<Int> = _totalClients.asStateFlow()
@@ -72,26 +72,11 @@ class AdminDashboardViewModel(
             try {
                 syncManager?.startSync()
                 _lastSyncTime.value = System.currentTimeMillis()
-                _syncMessage.value = "Sync completed successfully"
+                _syncMessage.value = "All data synced to cloud successfully"
             } catch (e: Exception) {
-                _syncMessage.value = "Sync failed: ${e.message}"
+                _syncMessage.value = "Sync failed. Check internet connection."
             } finally {
                 _isSyncing.value = false
-            }
-        }
-    }
-
-    fun resetFirebase() {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                com.example.fitjourney.util.FirebaseInitializer.wipeAndReinitialize(firestore)
-                _syncMessage.value = "Firebase project wiped and re-initialized"
-                loadStats() // Refresh counts after reset
-            } catch (e: Exception) {
-                _syncMessage.value = "Reset failed: ${e.message}"
-            } finally {
-                _isLoading.value = false
             }
         }
     }

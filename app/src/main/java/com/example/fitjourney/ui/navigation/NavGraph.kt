@@ -7,6 +7,7 @@ import androidx.navigation.compose.composable
 
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import com.example.fitjourney.di.AppViewModelProvider
 
 @Composable
@@ -103,9 +104,6 @@ fun FitJourneyNavGraph(
         }
 
         // Detailed Screens
-        composable(route = Screen.ClientDashboard.route) {
-            // Handled inside MainScreen
-        }
 
         composable(route = Screen.ClientDiet.route) {
             val viewModel: com.example.fitjourney.ui.client.diet.DietTrackingViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
@@ -273,17 +271,23 @@ fun FitJourneyNavGraph(
             val viewModel: com.example.fitjourney.ui.admin.AdminDashboardViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
                 factory = AppViewModelProvider.Factory
             )
+            var shouldLogout by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+
+            androidx.compose.runtime.LaunchedEffect(shouldLogout) {
+                if (shouldLogout) {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            }
+
             com.example.fitjourney.ui.admin.AdminDashboardScreen(
                 viewModel = viewModel,
                 onNavigateToApi = { navController.navigate(Screen.AdminApiManagement.route) },
                 onNavigateToAdmins = { navController.navigate(Screen.AdminManagement.route) },
                 onNavigateToProfile = { navController.navigate(Screen.AdminProfile.route) },
                 onNavigateToDiagnostics = { navController.navigate(Screen.FirebaseDiagnostic.route) },
-                onLogout = {
-                    navController.navigate(Screen.Login.route) {
-                        popUpTo(0) { inclusive = true }
-                    }
-                }
+                onLogout = { shouldLogout = true }
             )
         }
         composable(route = Screen.AdminApiManagement.route) {

@@ -41,7 +41,7 @@ fun AiVoiceCallScreen(
     // Voice Manager persistence
     val app = context.applicationContext as com.example.fitjourney.FitJourneyApplication
     val voiceManager = remember { 
-        VoiceManager(context, app.container.apiKeyStore) 
+        VoiceManager(context) 
     }
     val isListening by voiceManager.isListening.collectAsState()
     val currentSttText by voiceManager.transcript.collectAsState()
@@ -226,10 +226,10 @@ fun AiVoiceCallScreen(
                                     voiceManager.startListening { result ->
                                         viewModel.onVoiceResult(result) { response ->
                                             viewModel.setAiSpeaking(true)
-                                            voiceManager.speakWithElevenLabs(
+                                            voiceManager.speakWithPersona(
                                                 text = response,
                                                 persona = user?.coachPersona,
-                                                speakingLanguage = user?.speakingLanguage ?: "en"
+                                                gender = user?.coachGender
                                             ) {
                                                 viewModel.setAiSpeaking(false)
                                             }

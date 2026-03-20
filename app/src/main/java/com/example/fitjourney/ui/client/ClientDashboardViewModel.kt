@@ -2,6 +2,7 @@ package com.example.fitjourney.ui.client
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.fitjourney.domain.model.*
 import com.example.fitjourney.domain.repository.WorkoutRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -98,11 +99,18 @@ class ClientDashboardViewModel(
         }
     }
 
+    private var greetingGenerationStarted = false
+
     private fun generateDailyGreetingAI() {
+        if (greetingGenerationStarted) return
+        greetingGenerationStarted = true
         viewModelScope.launch {
-            val user = withTimeoutOrNull(2000) {
-                currentUser.filterNotNull().first()
-            } ?: return@launch
+            val user = currentUser
+                .filterNotNull()
+                .first()
+                .let { u ->
+                    kotlinx.coroutines.withTimeoutOrNull(3000L) { u }
+                } ?: return@launch
             
             val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
             val todayStr = dateFormat.format(Date())

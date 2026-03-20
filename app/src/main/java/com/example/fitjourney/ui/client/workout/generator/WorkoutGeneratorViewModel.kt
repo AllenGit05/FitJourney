@@ -30,7 +30,7 @@ class WorkoutGeneratorViewModel(
     val uiState: StateFlow<GeneratorUiState> = _uiState.asStateFlow()
 
     val currentUser: StateFlow<User?> = userRepository.userProfile
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     // Form State
     var goal = ""
@@ -43,97 +43,71 @@ class WorkoutGeneratorViewModel(
     fun generatePlan() {
         viewModelScope.launch {
             val user = currentUser.value ?: return@launch
-            
-            // Initial check for credits
+
             if (!user.isPremium && user.aiCredits < 3) {
-                _uiState.value = GeneratorUiState.Error("Insufficient credits. 3 credits required for plan generation.")
+                _uiState.value = GeneratorUiState.Error(
+                    "Insufficient credits. 3 credits required."
+                )
                 return@launch
             }
 
             _uiState.value = GeneratorUiState.Loading
-            
-            val prompt = """
-                Generate a professional weekly workout plan based on these preferences:
-                - Goal: $goal
-                - Experience Level: $level
-                - Workout Location: $location
-                - Available Equipment: $equipment
-                - Frequency: $daysPerWeek days per week
-                - Session Duration: $durationMinutes minutes
-                
-                IMPORTANT: Return ONLY a raw JSON object with no markdown formatting, no code blocks, and no extra text.
-                The JSON must strictly follow this structure:
-                {
-                  "weeklySchedule": [
-                    {
-                      "dayName": "Day 1: [Focus Area]",
-                      "exercises": [
-                        {
-                          "name": "Exercise Name",
-                          "sets": 3,
-                          "reps": "10-12",
-                          "restTimeSeconds": 60
-                        }
-                      ]
-                    }
-                  ]
-                }
-            """.trimIndent()
 
             try {
-                val response = apiRepository.generateContent(prompt)
-                val cleanResponse = response.trim()
-                    .removePrefix("```json")
-                    .removeSuffix("```")
-                    .trim()
+                val prompt = """
+                    Generate a $daysPerWeek-day workout plan for someone with these details:
+                    Goal: $goal, Level: $level, Location: $location, Equipment: $equipment,
+                    Session duration: $durationMinutes minutes.
+                    Return ONLY a JSON object, no markdown, no explanation. Format:
+                    {"weeklySchedule":[{"dayName":"string","exercises":[{"name":"string","sets":0,"reps":"string","restTimeSeconds":0}]}]}
+                """.trimIndent()
+
+                val resultJson = apiRepository.generateContent(prompt)
                 
-                val workoutDays = try {
-                    val jsonObject = JSONObject(cleanResponse)
-                    val scheduleArray = jsonObject.getJSONArray("weeklySchedule")
-                    val days = mutableListOf<WorkoutDay>()
-                    
-                    for (i in 0 until scheduleArray.length()) {
-                        val dayObj = scheduleArray.getJSONObject(i)
-                        val dayName = dayObj.getString("dayName")
-                        val exercisesArray = dayObj.getJSONArray("exercises")
-                        val exercises = mutableListOf<PlanExercise>()
-                        
-                        for (j in 0 until exercisesArray.length()) {
-                            val exObj = exercisesArray.getJSONObject(j)
-                            exercises.add(PlanExercise(
-                                name = exObj.getString("name"),
-                                sets = exObj.getInt("sets"),
-                                reps = exObj.getString("reps"),
-                                restTimeSeconds = exObj.getInt("restTimeSeconds")
-                            ))
-                        }
-                        days.add(WorkoutDay(dayName, exercises))
+                val jsonStr = resultJson.substringAfter("{").substringBeforeLast("}")
+                val json = org.json.JSONObject("{$jsonStr}")
+                val scheduleArray = json.getJSONArray("weeklySchedule")
+                val days = (0 until scheduleArray.length()).map { i ->
+                    val dayObj = scheduleArray.getJSONObject(i)
+                    val exArray = dayObj.getJSONArray("exercises")
+                    val exercises = (0 until exArray.length()).map { j ->
+                        val ex = exArray.getJSONObject(j)
+                        PlanExercise(
+                            name = ex.getString("name"),
+                            sets = ex.getInt("sets"),
+                            reps = ex.getString("reps"),
+                            restTimeSeconds = ex.getInt("restTimeSeconds")
+                        )
                     }
-                    days
-                } catch (e: Exception) {
-                    _uiState.value = GeneratorUiState.Error("Could not parse workout plan. Please try again.")
-                    return@launch
-                }
-                
-                val generatedPlan = WeeklyWorkoutPlan(
-                    goal = goal,
-                    level = level,
-                    location = location,
-                    daysPerWeek = daysPerWeek,
-                    durationMinutes = durationMinutes,
-                    weeklySchedule = workoutDays
-                )
-                
-                // Deduct 3 credits ONLY after successful parse
-                val deductionSuccess = userRepository.updateCredits(3)
-                if (!deductionSuccess && !user.isPremium) {
-                    _uiState.value = GeneratorUiState.Error("Plan generated but credit deduction failed. Please check your balance.")
-                    return@launch
+                    WorkoutDay(
+                        dayName = dayObj.getString("dayName"),
+                        exercises = exercises
+                    )
                 }
 
-                _uiState.value = GeneratorUiState.Success(generatedPlan)
+                // Only deduct credits AFTER successful parse
+                if (!user.isPremium) {
+                    userRepository.updateCredits(3)
+                }
+
+                _uiState.value = GeneratorUiState.Success(
+                    WeeklyWorkoutPlan(
+                        goal = goal,
+                        level = level,
+                        location = location,
+                        daysPerWeek = daysPerWeek,
+                        durationMinutes = durationMinutes,
+                        weeklySchedule = days
+                    )
+                )
+            } catch (e: org.json.JSONException) {
+                _uiState.value = GeneratorUiState.Error(
+                    "Could not parse the AI response. Please try again."
+                )
             } catch (e: Exception) {
-                _uiState.value = GeneratorUiState.Error("Generation failed: ${e.localizedMessage ?: "Unknown error"}")
+                _uiState.value = GeneratorUiState.Error(
+                    e.message ?: "AI request failed. Please try again."
+                )
             }
         }
     }

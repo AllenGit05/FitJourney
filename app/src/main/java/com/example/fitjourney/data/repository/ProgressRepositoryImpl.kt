@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.*
 import java.io.Closeable
 
 class ProgressRepositoryImpl(
+    private val context: android.content.Context,
     private val stepsDao: com.example.fitjourney.data.local.dao.StepsDao,
     private val weightDao: com.example.fitjourney.data.local.dao.WeightDao,
     private val photoDao: com.example.fitjourney.data.local.dao.PhotoDao,
@@ -52,21 +53,38 @@ class ProgressRepositoryImpl(
     override suspend fun addProgressPhoto(imageUri: android.net.Uri, weight: Float, note: String) {
         val userId = fireauth.currentUser?.uid ?: "anonymous"
         val photoId = java.util.UUID.randomUUID().toString()
-        
-        // Upload to Cloud
-        val cloudUrl = try {
-            storageRepo.uploadProgressPhoto(userId, photoId, imageUri)
+
+        val imageUrl = imageUri.toString()
+        val tempFile = java.io.File(context.cacheDir, "photo_upload_$photoId.jpg")
+        val uploadedUrl = try {
+            if (imageUrl.startsWith("content://")) {
+                context.contentResolver.openInputStream(imageUri)?.use { input ->
+                    tempFile.outputStream().use { output -> input.copyTo(output) }
+                }
+                storageRepo.uploadProgressPhoto(userId, photoId, android.net.Uri.fromFile(tempFile))
+            } else {
+                val file = java.io.File(imageUrl)
+                if (file.exists()) {
+                    storageRepo.uploadProgressPhoto(userId, photoId, android.net.Uri.fromFile(file))
+                } else {
+                    imageUrl
+                }
+            }
         } catch (e: Exception) {
-            imageUri.toString() // Fallback to local
+            imageUrl
+        } finally {
+            if (tempFile.exists()) tempFile.delete()
         }
 
-        photoDao.insertPhoto(com.example.fitjourney.data.local.entity.ProgressPhotoEntity(
-            id = photoId, 
-            imageUrl = cloudUrl, 
-            weight = weight, 
-            note = note,
-            isSynced = cloudUrl != imageUri.toString()
-        ))
+        photoDao.insertPhoto(
+            com.example.fitjourney.data.local.entity.ProgressPhotoEntity(
+                id = photoId,
+                imageUrl = uploadedUrl,
+                weight = weight,
+                note = note,
+                isSynced = uploadedUrl != imageUrl
+            )
+        )
     }
 
     override suspend fun logMeasurements(waist: Float, chest: Float, arms: Float, hips: Float, legs: Float) {

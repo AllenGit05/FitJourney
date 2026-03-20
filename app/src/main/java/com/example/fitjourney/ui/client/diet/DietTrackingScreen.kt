@@ -495,15 +495,15 @@ private fun MacroDonutChart(
 
     val proteinSweep by animateFloatAsState(
         targetValue = if (animationTriggered) proteinProportion * 360f else 0f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumLow, stiffness = Spring.StiffnessLow)
+        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow)
     )
     val carbsSweep by animateFloatAsState(
         targetValue = if (animationTriggered) carbsProportion * 360f else 0f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumLow, stiffness = Spring.StiffnessLow)
+        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow)
     )
     val fatsSweep by animateFloatAsState(
         targetValue = if (animationTriggered) fatsProportion * 360f else 0f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumLow, stiffness = Spring.StiffnessLow)
+        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow)
     )
 
     Box(modifier = modifier, contentAlignment = Alignment.Center) {

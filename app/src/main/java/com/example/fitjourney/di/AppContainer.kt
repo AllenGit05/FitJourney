@@ -49,7 +49,7 @@ class DefaultAppContainer(private val context: android.content.Context) : AppCon
     }
     
     override val workoutRepository: com.example.fitjourney.domain.repository.WorkoutRepository by lazy {
-        com.example.fitjourney.data.repository.WorkoutRepositoryImpl(database.workoutDao(), syncManager)
+        com.example.fitjourney.data.repository.WorkoutRepositoryImpl(database.workoutDao(), syncManager, context)
     }
     
     override val dietRepository: com.example.fitjourney.domain.repository.DietRepository by lazy {
@@ -58,6 +58,7 @@ class DefaultAppContainer(private val context: android.content.Context) : AppCon
     
     override val progressRepository: com.example.fitjourney.domain.repository.ProgressRepository by lazy {
         com.example.fitjourney.data.repository.ProgressRepositoryImpl(
+            context,
             database.stepDao(),
             database.weightDao(),
             database.photoDao(),
@@ -147,7 +148,9 @@ object AppViewModelProvider {
             )
         }
         initializer {
-            ForgotPasswordViewModel()
+            ForgotPasswordViewModel(
+                authRepository = fitJourneyApplication().container.authRepository
+            )
         }
         initializer {
             com.example.fitjourney.ui.client.ClientDashboardViewModel(
@@ -211,9 +214,7 @@ object AppViewModelProvider {
         }
         initializer {
             com.example.fitjourney.ui.admin.AdminDashboardViewModel(
-                syncManager = fitJourneyApplication().container.syncManager,
-                firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance(),
-                adminConfig = fitJourneyApplication().container.adminConfig
+                syncManager = fitJourneyApplication().container.syncManager
             )
         }
         initializer {
@@ -223,7 +224,6 @@ object AppViewModelProvider {
         }
         initializer {
             com.example.fitjourney.ui.admin.management.AdminManagementViewModel(
-                adminConfig = fitJourneyApplication().container.adminConfig,
                 firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
             )
         }

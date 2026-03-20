@@ -49,17 +49,36 @@ fun ForgotPasswordScreen(
 
             Spacer(Modifier.height(32.dp))
 
-            FJTextField(value = email, onValueChange = viewModel::setEmail, placeholder = "Email address",
-                leadingIcon = { Icon(Icons.Default.Email, null, tint = FJTextSecondary) })
+            FJTextField(
+                value = email,
+                onValueChange = viewModel::setEmail,
+                placeholder = "Email address",
+                leadingIcon = { Icon(Icons.Default.Email, null, tint = FJTextSecondary) }
+            )
             Spacer(Modifier.height(16.dp))
-            FJTextField(value = backupPin, onValueChange = viewModel::setBackupPin, placeholder = "Backup PIN",
-                leadingIcon = { Icon(Icons.Default.Pin, null, tint = FJTextSecondary) }, isPassword = true)
+            FJTextField(
+                value = backupPin,
+                onValueChange = viewModel::setBackupPin,
+                placeholder = "Backup PIN",
+                leadingIcon = { Icon(Icons.Default.Pin, null, tint = FJTextSecondary) },
+                isPassword = true
+            )
             Spacer(Modifier.height(16.dp))
-            FJTextField(value = newPassword, onValueChange = viewModel::setNewPassword, placeholder = "New Password",
-                leadingIcon = { Icon(Icons.Default.Lock, null, tint = FJTextSecondary) }, isPassword = true)
+            FJTextField(
+                value = newPassword,
+                onValueChange = viewModel::setNewPassword,
+                placeholder = "New Password",
+                leadingIcon = { Icon(Icons.Default.Lock, null, tint = FJTextSecondary) },
+                isPassword = true
+            )
             Spacer(Modifier.height(16.dp))
-            FJTextField(value = confirmNewPassword, onValueChange = viewModel::setConfirmNewPassword, placeholder = "Confirm New Password",
-                leadingIcon = { Icon(Icons.Default.Lock, null, tint = FJTextSecondary) }, isPassword = true)
+            FJTextField(
+                value = confirmNewPassword,
+                onValueChange = viewModel::setConfirmNewPassword,
+                placeholder = "Confirm New Password",
+                leadingIcon = { Icon(Icons.Default.Lock, null, tint = FJTextSecondary) },
+                isPassword = true
+            )
 
             Spacer(Modifier.height(32.dp))
 

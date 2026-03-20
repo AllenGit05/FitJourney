@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -50,20 +51,12 @@ fun AdminDashboardScreen(
                 TopAppBar(
                     title = { Text("Admin Dashboard", color = FJTextPrimary, fontWeight = FontWeight.Bold) },
                     actions = {
-                        IconButton(
-                            onClick = onLogout,
-                            modifier = Modifier.padding(end = 8.dp).width(90.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.Logout,
-                                    contentDescription = "Logout",
-                                    tint = FJError,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text("Logout", color = FJError, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                            }
+                        IconButton(onClick = onLogout) {
+                            Icon(
+                                imageVector = Icons.Default.Logout,
+                                contentDescription = "Logout",
+                                tint = FJError
+                            )
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = FJBackground)
@@ -110,6 +103,12 @@ fun AdminDashboardScreen(
                     sub = "Configure AI Coach provider keys", onClick = onNavigateToApi)
                 AdminNavCard(icon = Icons.Default.AdminPanelSettings, label = "Manage Admins",
                     sub = "Add or remove admin accounts", onClick = onNavigateToAdmins)
+                AdminNavCard(
+                    icon = Icons.Default.Person,
+                    label = "Admin Profile",
+                    sub = "Change email and password",
+                    onClick = onNavigateToProfile
+                )
                 AdminNavCard(icon = Icons.Default.LocalFireDepartment, label = "Firebase Diagnostics",
                     sub = "Run system-wide integration tests", onClick = onNavigateToDiagnostics)
 
@@ -140,16 +139,9 @@ fun AdminDashboardScreen(
                             Button(
                                 onClick = { viewModel.triggerSync() },
                                 enabled = !isSyncing,
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.buttonColors(containerColor = FJGold, contentColor = FJOnGold)
                             ) { Text("Force Sync", fontSize = 13.sp) }
-                            
-                            OutlinedButton(
-                                onClick = { viewModel.resetFirebase() },
-                                modifier = Modifier.weight(1f),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, FJError),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = FJError)
-                            ) { Text("Reset Firebase", fontSize = 13.sp) }
                         }
                     }
                 }

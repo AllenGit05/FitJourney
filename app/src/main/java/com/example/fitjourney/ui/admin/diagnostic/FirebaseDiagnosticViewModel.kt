@@ -430,7 +430,7 @@ class FirebaseDiagnosticViewModel(
                 val tempFile = File(getApplication<Application>().cacheDir, "test_photo.jpg")
                 FileOutputStream(tempFile).use { bitmap.compress(Bitmap.CompressFormat.JPEG, 100, it) }
 
-                downloadUrl = firebaseStorageRepository.uploadProgressPhoto(uid, "test_photo_001", tempFile)
+                downloadUrl = firebaseStorageRepository.uploadProgressPhoto(uid, "test_photo_001", android.net.Uri.fromFile(tempFile))
                 if (downloadUrl?.contains("firebasestorage") == true) {
                     TestResultStatus.Pass("Uploaded successfully. URL: $downloadUrl")
                 } else {

@@ -108,6 +108,7 @@ class AdminProfileViewModel(
                             emailError = null
                         )
                     }
+                    loadCurrentEmail()
                 },
                 onFailure = { e ->
                     _uiState.update {
