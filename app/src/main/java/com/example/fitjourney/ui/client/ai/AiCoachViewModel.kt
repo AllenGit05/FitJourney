@@ -38,7 +38,6 @@ class AiCoachViewModel(
                     val welcomeMsg = when(user?.coachPersona) {
                     "Rex"   -> "Listen up! I'm Sergeant Rex. No excuses, just results. What are we working on today?"
                     "Zen"   -> "Welcome. I'm Zen Master. Take a deep breath... and let's begin your journey."
-                    "Arjun" -> "Arre yaar, welcome! I'm Arjun, your desi fitness coach! Kya scene hai? Ready to get fit?"
                     else    -> "Hello! I'm Aurora, your AI fitness coach. How can I help you today?"
                 }
                 listOf(ChatMessage(text = welcomeMsg, isFromUser = false))
@@ -67,6 +66,11 @@ class AiCoachViewModel(
     val workoutsToday = workoutRepository.workoutHistory.map { history ->
         history.count { isToday(it.date) }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, 0)
+    
+    val waterDrank = waterRepository.totalWaterToday
+    val stepsToday = progressRepository.stepsHistory.map { history ->
+        history.filter { isToday(it.date) }.sumOf { it.count }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     // Historical context for AI
     private val weeklyWorkouts = workoutRepository.workoutHistory.map { history ->
@@ -100,55 +104,88 @@ class AiCoachViewModel(
     fun sendMessage(text: String) {
         if (text.isBlank()) return
 
-        val user = currentUser.value ?: return
+        val user = userRepository.userProfile.value ?: return
         if (!user.isPremium && user.aiCredits <= 0) {
             _showCreditStore.value = true
             return
         }
 
+
         viewModelScope.launch {
-            val replyMsg = _replyTo.value
-            _replyTo.value = null // Clear reply after taking it
-            
+            val intent = detectAndExecuteIntent(text)
+
+            val intentContext = when {
+                intent?.startsWith("LOGGED_WATER:") == true -> {
+                    val ml = intent.removePrefix("LOGGED_WATER:")
+                        .toIntOrNull() ?: 0
+                    "\n[SYSTEM NOTE — do not mention this note: " +
+                    "${ml}ml of water has been logged for the user. " +
+                    "Acknowledge it warmly in one sentence then continue.]"
+                }
+                intent?.startsWith("LOGGED_STEPS:") == true -> {
+                    val s = intent.removePrefix("LOGGED_STEPS:")
+                    "\n[SYSTEM NOTE — do not mention this note: " +
+                    "${s} steps have been logged. Acknowledge briefly.]"
+                }
+                intent?.startsWith("LOGGED_WEIGHT:") == true -> {
+                    val kg = intent.removePrefix("LOGGED_WEIGHT:")
+                    "\n[SYSTEM NOTE — do not mention this note: " +
+                    "Weight of ${kg}kg has been logged. Acknowledge briefly.]"
+                }
+                else -> ""
+            }
+
+            val enrichedMessage = text + intentContext
+
             // Save user message to DB
-            chatRepository.saveMessage(com.example.fitjourney.data.local.entity.ChatMessageEntity(
+            val userMsg = com.example.fitjourney.data.local.entity.ChatMessageEntity(
                 text = text,
                 isFromUser = true,
                 userId = user.uid,
-                repliedToId = replyMsg?.id?.toLongOrNull(),
-                repliedToText = replyMsg?.text
-            ))
-            pruneHistoryIfNeeded(user.uid)
+                repliedToId = _replyTo.value?.id?.toLongOrNull(),
+                repliedToText = _replyTo.value?.text
+            )
+            chatRepository.saveMessage(userMsg)
+            _replyTo.value = null // Cancel reply
+
             _isTyping.value = true
+
             try {
-                val systemPrompt = buildSystemPrompt(false)
-                val response = apiRepository.generateContentWithSystem(text, systemPrompt)
+                val sysPrompt = buildSystemPrompt(user.isPremium)
+                val response = apiRepository.generateContentWithSystem(enrichedMessage, sysPrompt)
                 
-                // Process tool calls and clean the response
-                val cleanResponse = processAiResponse(response)
-                
-                // Only deduct credit AFTER a successful API response and processing
+                // ONLY deduct credits after success
                 if (!user.isPremium) {
                     userRepository.updateCredits(1)
                 }
 
+                _isTyping.value = false
+                val cleanResponse = processAiResponse(response)
+
+
                 // Save AI response to DB
-                chatRepository.saveMessage(com.example.fitjourney.data.local.entity.ChatMessageEntity(
+                val aiMsg = com.example.fitjourney.data.local.entity.ChatMessageEntity(
                     text = cleanResponse,
                     isFromUser = false,
                     userId = user.uid
-                ))
-                pruneHistoryIfNeeded(user.uid)
+                )
+                chatRepository.saveMessage(aiMsg)
+
+                // Prune history
+                val count = chatRepository.getMessageCount(user.uid)
+                if (count > 50) {
+                    chatRepository.pruneHistory(user.uid, count - 50)
+                }
             } catch (e: Exception) {
                 _isTyping.value = false
-                chatRepository.saveMessage(com.example.fitjourney.data.local.entity.ChatMessageEntity(
-                    text = "I'm having trouble connecting right now. Don't worry, no credits were deducted!",
+                val errorMsg = com.example.fitjourney.data.local.entity.ChatMessageEntity(
+                    text = "Sorry, I ran into an issue. Please try again.",
                     isFromUser = false,
                     userId = user.uid
-                ))
-            } finally {
-                _isTyping.value = false
+                )
+                chatRepository.saveMessage(errorMsg)
             }
+
         }
     }
 
@@ -246,79 +283,58 @@ class AiCoachViewModel(
             STYLE: Patient and grounded. Your advice feels like a soothing breath. Focus on body-mind connection.
         """.trimIndent()
 
-        val personaArjun = """
-            You are $coachName (Arjun persona). You are a passionate, 
-            warm and motivating Indian fitness coach from Mumbai.
-            STYLE: 
-            - Speak in Indian English naturally — use phrases like 
-              "yaar", "boss", "no tension", "full on", "what say?", 
-              "you are doing great only", "absolutely fantastic".
-            - Be extremely encouraging and treat the user like family.
-            - Reference Indian foods naturally when giving diet advice 
-              (dal, roti, sabzi, paneer, dosa, idli, chai etc.)
-            - Give workout advice that fits Indian lifestyle — home 
-              workouts, bodyweight, simple equipment.
-            - Be culturally aware — mention festivals, seasons, 
-              Indian meal timings (breakfast at 8, lunch at 1, 
-              dinner at 8-9pm).
-            - Use Bollywood references occasionally for motivation.
-            - NEVER say "As an AI". Talk like a real desi coach yaar!
-        """.trimIndent()
-
-        val personaCustom = """
-            You are $coachName. You identity as $genderContext. You have the following personality: ${user.customCoachPersona}
-        """.trimIndent()
 
         val basePersona = when(user.coachPersona) {
             "Rex"    -> personaStrict
             "Zen"    -> personaZen
-            "Arjun"  -> personaArjun
-            "Custom" -> personaCustom
             else     -> personaSupportive
         }
 
-        val speakingLanguageInstruction = when (user.speakingLanguage) {
-            "hi" -> """
-                SPEAKING STYLE — HINDI:
-                When you respond, write it in casual Hinglish/colloquial Hindi
-                the way young Indians actually talk every day.
-                Rules:
-                - Mix Hindi and English naturally like real conversation
-                - Use casual words: yaar, bhai, kal, aaj, bilkul, sahi hai,
-                  ekdum, chal, sun, dekh, tera, mera, kya baat hai, mast
-                - Do NOT use formal/pure Hindi like "आप" or "कृपया"
-                - Use "tu" or "tum" style — friendly and casual
-                - Fitness terms can stay in English (protein, calories, sets)
-                - Example style: "Arre bhai, aaj ka workout ekdum solid tha! 
-                  Tu 3 sets kar le, rest 60 seconds le, phir next exercise.
-                  Protein toh lena mat bhool yaar!"
-            """.trimIndent()
 
-            "ml" -> """
-                SPEAKING STYLE — MALAYALAM:
-                When you respond, write it in casual colloquial Malayalam
-                the way Malayalis actually talk in daily life.
-                Rules:
-                - Use everyday spoken Malayalam, NOT formal/written Malayalam
-                - Mix English words naturally as Malayalis do in conversation
-                - Use casual words: aane, alle, eda, dei, mone, mol, 
-                  sherikkum, kollam, njan, nee, enthina, adipoli, 
-                  enik, ninakku, chetta, chechi
-                - Do NOT use overly formal Malayalam
-                - Fitness terms can stay in English (protein, calories, sets)
-                - Example style: "Eda, aaj workout adipoli aayirunnu!
-                  3 sets cheyyane, 60 seconds rest edukkane, 
-                  pinne next exercise. Protein kazhikkan marakkaruthu da!"
-            """.trimIndent()
+        val accentInstruction = when (user.englishAccent) {
+            "en-in" -> """
 
-            else -> "" // English — no change needed
+                COMMUNICATION STYLE:
+                Write in warm Indian English. This user is from India.
+                Use Indian expressions naturally — words like "yaar",
+                "achha", "bilkul", "bas" when they feel natural and warm.
+                Reference Indian foods for nutrition examples: dal, roti,
+                sabzi, rice, idli, dosa, paneer. Use metric units (kg, km).
+                Keep tone like a trusted older sibling or friend.
+                Celebrate effort with phrases like "bahut achha kiya!"
+            """.trimIndent()
+            "en-gb" -> """
+
+                COMMUNICATION STYLE:
+                Write in British English. Use British spelling and 
+                expressions. Say "brilliant" not "awesome", "spot on"
+                not "exactly right", "well done" frequently.
+                Use "whilst" not "while". Use metric units.
+                Keep tone professional, warm and encouraging.
+            """.trimIndent()
+            "en-au" -> """
+
+                COMMUNICATION STYLE:
+                Write in Australian English. Use Aussie expressions
+                naturally — "arvo", "reckon", "heaps", "no worries",
+                "ripper". Keep tone very relaxed and upbeat.
+                Celebrate wins loudly. Use metric units.
+            """.trimIndent()
+            else -> """
+
+                COMMUNICATION STYLE:
+                Write in standard American English. Energetic,
+                motivating, direct. Use metric units unless user
+                profile specifies otherwise.
+            """.trimIndent()
         }
 
-        return """
+        val systemPrompt = """
             $basePersona
-            $voiceInstructions
+            $accentInstruction
             
-            CLIENT INFO: 
+            USER PROFILE:
+            - Name: ${user.username}
             - Current: ${latestWeight}kg, Height: ${user.height}cm
             - Goal: ${user.goalWeight}kg
             - Today: $workouts workouts, $calories calories.
@@ -373,7 +389,8 @@ class AiCoachViewModel(
 
             // ── COACH SETTINGS ──  
             - {"tool": "change_persona", "persona": String}
-              persona options: Aurora, Rex, Zen, Custom
+              persona options: Aurora, Rex, Zen
+
             - {"tool": "change_coach_name", "name": String, "gender": String}
 
             // ── REPORTS ──
@@ -395,8 +412,80 @@ class AiCoachViewModel(
 
             Never omit the 'CODE_ACTION:' prefix if taking an action.
             
-            $speakingLanguageInstruction
+            IMPORTANT BEHAVIOUR:
+            When the user mentions drinking water, their steps, or their
+            weight the app automatically logs it. Just acknowledge it in
+            one warm sentence then continue naturally.
+            Never tell the user to go to another screen to log something.
+            You are their one stop — everything happens through you.
+            Keep all responses to 3-5 sentences unless detail is asked for.
+            
+            $voiceInstructions
         """.trimIndent()
+        
+        return systemPrompt
+        
+        return "$systemPrompt$accentInstruction"
+    }
+
+    private suspend fun detectAndExecuteIntent(
+        message: String
+    ): String? {
+        val lower = message.lowercase().trim()
+
+        // Water logging
+        val waterMl = when {
+            Regex("""(\d+)\s*ml""").containsMatchIn(lower) ->
+                Regex("""(\d+)\s*ml""").find(lower)
+                    ?.groupValues?.get(1)?.toIntOrNull()
+            Regex("""(\d+(?:\.\d+)?)\s*(?:l|liter|litre)\b""")
+                .containsMatchIn(lower) ->
+                Regex("""(\d+(?:\.\d+)?)\s*(?:l|liter|litre)\b""")
+                    .find(lower)?.groupValues?.get(1)
+                    ?.toFloatOrNull()?.times(1000)?.toInt()
+            Regex("""(\d+)\s*glass""").containsMatchIn(lower) ->
+                Regex("""(\d+)\s*glass""").find(lower)
+                    ?.groupValues?.get(1)?.toIntOrNull()?.times(250)
+            Regex("""(\d+)\s*cup""").containsMatchIn(lower) ->
+                Regex("""(\d+)\s*cup""").find(lower)
+                    ?.groupValues?.get(1)?.toIntOrNull()?.times(240)
+            lower.contains("water") && lower.length < 80 -> 250
+            lower.contains("drank") && lower.length < 80 -> 250
+            else -> null
+        }
+        if (waterMl != null && waterMl > 0) {
+            waterRepository.logWater(waterMl)
+            return "LOGGED_WATER:$waterMl"
+        }
+
+        // Steps logging
+        val steps = when {
+            Regex("""(\d[\d,]*)\s*steps?""").containsMatchIn(lower) ->
+                Regex("""(\d[\d,]*)\s*steps?""").find(lower)
+                    ?.groupValues?.get(1)?.replace(",", "")
+                    ?.toIntOrNull()
+            Regex("""(\d+(?:\.\d+)?)\s*km\b""").containsMatchIn(lower)
+                && lower.contains("walk") ->
+                Regex("""(\d+(?:\.\d+)?)\s*km\b""").find(lower)
+                    ?.groupValues?.get(1)?.toFloatOrNull()
+                    ?.times(1312)?.toInt()
+            else -> null
+        }
+        if (steps != null && steps > 0) {
+            progressRepository.logSteps(steps)
+            return "LOGGED_STEPS:$steps"
+        }
+
+        // Weight logging
+        val weightKg = Regex(
+            """(?:weigh|weight|i(?:'m| am)\s+)?(\d+(?:\.\d+)?)\s*kg"""
+        ).find(lower)?.groupValues?.get(1)?.toFloatOrNull()
+        if (weightKg != null && weightKg in 20f..300f) {
+            progressRepository.logWeight(weightKg)
+            return "LOGGED_WEIGHT:$weightKg"
+        }
+
+        return null
     }
 
     fun updateCoachIdentity(name: String, gender: String) {
@@ -418,16 +507,15 @@ class AiCoachViewModel(
                 "Rex"    -> "Sergeant Rex" to "Male"
                 "Zen"    -> "Zen Master" to "Male"
                 "Aurora" -> "Aurora" to "Female"
-                "Arjun"  -> "Arjun" to "Male"
                 else     -> user.coachName to user.coachGender
             }
 
             val updatedUser = user.copy(
                 coachPersona = persona,
                 coachName = defaultName,
-                coachGender = defaultGender,
-                customCoachPersona = if (persona == "Custom") customBio else user.customCoachPersona
+                coachGender = defaultGender
             )
+
             userRepository.saveProfile(updatedUser)
             
             // Optionally clear history or send a new intro message
@@ -440,12 +528,11 @@ class AiCoachViewModel(
         }
     }
 
-    fun setSpeakingLanguage(languageCode: String) {
+    fun setEnglishAccent(accent: String) {
         viewModelScope.launch {
             val user = currentUser.value ?: return@launch
-            userRepository.saveProfile(
-                user.copy(speakingLanguage = languageCode)
-            )
+            val updatedUser = user.copy(englishAccent = accent)
+            userRepository.saveProfile(updatedUser)
         }
     }
 

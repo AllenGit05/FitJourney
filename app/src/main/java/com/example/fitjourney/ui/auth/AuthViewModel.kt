@@ -63,7 +63,8 @@ class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
             _isLoading.value = false
 
             result.onSuccess { user ->
-                _isAdmin.value = user.role == com.example.fitjourney.domain.model.UserRole.ADMIN
+                val isAdmin = user.role == com.example.fitjourney.domain.model.UserRole.ADMIN
+                _isAdmin.value = isAdmin
                 when (user.role) {
                     com.example.fitjourney.domain.model.UserRole.ADMIN -> {
                         _navigateToAdmin.value = true

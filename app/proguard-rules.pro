@@ -17,5 +17,21 @@
 #-keepattributes SourceFile,LineNumberTable
 
 # If you keep the line number information, uncomment this to
-# hide the original source file name.
+#hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Firebase
+-keep class com.google.firebase.** { *; }
+
+# Gson
+-keep class com.google.gson.** { *; }
+
+# Domain Models & Entities
+-keep class com.example.fitjourney.domain.model.** { *; }
+-keep class com.example.fitjourney.data.local.entity.** { *; }
+
+# Keep Room and ViewModels
+-keepclassmembers class * extends androidx.lifecycle.ViewModel {
+    public <init>(...);
+}
+-keep class * extends androidx.room.RoomDatabase

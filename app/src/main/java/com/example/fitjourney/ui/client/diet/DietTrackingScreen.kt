@@ -459,15 +459,19 @@ fun AddFoodDialog(
         confirmButton = {
             Button(
                 onClick = { 
+                    val calories = cal.toIntOrNull() ?: 0
+                    if (name.isBlank() || calories <= 0) return@Button
+                    
                     onAdd(
                         name, 
-                        (cal.toIntOrNull() ?: 0).coerceAtLeast(0), 
+                        calories, 
                         (protein.toIntOrNull() ?: 0).coerceAtLeast(0), 
                         (carbs.toIntOrNull() ?: 0).coerceAtLeast(0), 
                         (fats.toIntOrNull() ?: 0).coerceAtLeast(0), 
                         mealType
                     ) 
                 },
+
                 colors = ButtonDefaults.buttonColors(containerColor = FJGold),
                 shape = RoundedCornerShape(50),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)

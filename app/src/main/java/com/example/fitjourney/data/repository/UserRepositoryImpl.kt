@@ -12,8 +12,10 @@ import java.util.*
 
 class UserRepositoryImpl(
     private val authRepository: AuthRepository,
+    private val firebaseStorageRepository: com.example.fitjourney.data.remote.FirebaseStorageRepository,
     private val userDao: UserDao
 ) : UserRepository {
+
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -52,9 +54,20 @@ class UserRepositoryImpl(
 
     override suspend fun updateProfilePicture(uri: String?) {
         val current = userProfile.value ?: return
-        val updated = current.copy(profilePictureUri = uri)
-        saveProfile(updated)
+        if (uri == null) {
+            saveProfile(current.copy(profilePictureUri = null))
+            return
+        }
+
+        // Upload to Firebase Storage
+        val downloadUrl = firebaseStorageRepository.uploadProfilePhoto(current.uid, android.net.Uri.parse(uri))
+        if (downloadUrl != null) {
+            val updated = current.copy(profilePictureUri = downloadUrl)
+            saveProfile(updated)
+        }
     }
+
+
 
     private fun checkAndResetCredits(user: User) {
         val cal = Calendar.getInstance()
@@ -66,7 +79,7 @@ class UserRepositoryImpl(
                 lastCreditResetMonth = currentMonth,
                 dailyAiMessagesCount = 0
             )
-            CoroutineScope(Dispatchers.IO).launch {
+            repositoryScope.launch(Dispatchers.IO) {
                 saveProfile(updatedUser)
             }
         }
@@ -104,14 +117,15 @@ class UserRepositoryImpl(
         coachName = coachName,
         lastGreeting = lastGreeting,
         lastGreetingDate = lastGreetingDate,
-        profilePictureUri = profilePictureUri
+        profilePictureUri = profilePictureUri,
+        englishAccent = englishAccent
     )
 
     private fun User.toEntity(id: String): UserEntity = UserEntity(
         uid = id,
         email = email,
-        role = role.name,
         username = username,
+        role = role.name,
         isPremium = isPremium,
         aiCredits = aiCredits,
         dailyAiMessagesCount = dailyAiMessagesCount,
@@ -139,6 +153,7 @@ class UserRepositoryImpl(
         coachName = coachName,
         lastGreeting = lastGreeting,
         lastGreetingDate = lastGreetingDate,
-        profilePictureUri = profilePictureUri
+        profilePictureUri = profilePictureUri,
+        englishAccent = englishAccent
     )
 }

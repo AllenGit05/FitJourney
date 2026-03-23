@@ -20,7 +20,7 @@ class SyncManager(
     private val db: FitJourneyDatabase,
     private val firestore: FirebaseFirestore
 ) {
-    private val scope = CoroutineScope(Dispatchers.IO)
+    private val scope = CoroutineScope(Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
 
     private val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
 
@@ -37,7 +37,9 @@ class SyncManager(
             syncHabits(userId)
             syncMeasurements(userId)
             syncReports(userId)
+            syncPhotos(userId)
         }
+
     }
 
     private fun isNetworkAvailable(): Boolean {
@@ -46,10 +48,30 @@ class SyncManager(
         return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
+    private suspend fun <T> retry(
+        times: Int = 3,
+        initialDelay: Long = 1000,
+        maxDelay: Long = 5000,
+        factor: Double = 2.0,
+        block: suspend () -> T
+    ): T? {
+        var currentDelay = initialDelay
+        repeat(times) { iteration ->
+            try {
+                return block()
+            } catch (e: Exception) {
+                if (iteration == times - 1) throw e
+                kotlinx.coroutines.delay(currentDelay)
+                currentDelay = (currentDelay * factor).toLong().coerceAtMost(maxDelay)
+            }
+        }
+        return null
+    }
+
     private suspend fun syncWorkouts(userId: String) {
         val unsynced = db.workoutDao().getUnsyncedSessions().first()
         for (session in unsynced) {
-            try {
+            retry {
                 if (session.isDeleted) {
                     firestore.collection(FirestoreSchema.USERS).document(userId)
                         .collection(FirestoreSchema.WORKOUTS).document(session.id).delete().await()
@@ -60,113 +82,139 @@ class SyncManager(
                         .set(session.toWorkoutFirestoreMap()).await()
                     db.workoutDao().insertSession(session.copy(isSynced = true, syncedAt = System.currentTimeMillis()))
                 }
-            } catch (e: Exception) { e.printStackTrace() }
+            }
         }
     }
 
     private suspend fun syncDiet(userId: String) {
         val unsynced = db.dietDao().getUnsyncedLogs().first()
         for (log in unsynced) {
-            try {
+            retry {
                 if (log.isDeleted) {
                     firestore.collection(FirestoreSchema.USERS).document(userId)
-                        .collection(FirestoreSchema.DIET_ENTRIES).document(log.id.toString()).delete().await()
+                        .collection(FirestoreSchema.DIET).document(log.id.toString()).delete().await()
                     db.dietDao().deleteLogById(log.id)
                 } else {
                     firestore.collection(FirestoreSchema.USERS).document(userId)
-                        .collection(FirestoreSchema.DIET_ENTRIES).document(log.id.toString())
+                        .collection(FirestoreSchema.DIET).document(log.id.toString())
                         .set(log.toDietFirestoreMap()).await()
                     db.dietDao().insertLog(log.copy(isSynced = true, syncedAt = System.currentTimeMillis()))
                 }
-            } catch (e: Exception) { e.printStackTrace() }
+
+            }
         }
     }
 
     private suspend fun syncWater(userId: String) {
         val unsynced = db.waterDao().getUnsyncedWater().first()
         for (entry in unsynced) {
-            try {
+            retry {
                 if (entry.isDeleted) {
                     firestore.collection(FirestoreSchema.USERS).document(userId)
-                        .collection(FirestoreSchema.WATER_ENTRIES).document(entry.id).delete().await()
+                        .collection(FirestoreSchema.WATER).document(entry.id).delete().await()
                     db.waterDao().deleteWaterById(entry.id)
                 } else {
                     firestore.collection(FirestoreSchema.USERS).document(userId)
-                        .collection(FirestoreSchema.WATER_ENTRIES).document(entry.id)
+                        .collection(FirestoreSchema.WATER).document(entry.id)
                         .set(entry.toWaterFirestoreMap()).await()
                     db.waterDao().insertWater(entry.copy(isSynced = true, syncedAt = System.currentTimeMillis()))
                 }
-            } catch (e: Exception) { e.printStackTrace() }
+
+            }
         }
     }
 
     private suspend fun syncSteps(userId: String) {
         val unsynced = db.stepDao().getUnsyncedSteps().first()
         for (entry: StepsEntity in unsynced) {
-            try {
+            retry {
                 if (entry.isDeleted) {
                     firestore.collection(FirestoreSchema.USERS).document(userId)
-                        .collection(FirestoreSchema.STEPS_ENTRIES).document(entry.id).delete().await()
+                        .collection(FirestoreSchema.STEPS).document(entry.id).delete().await()
                 } else {
                     firestore.collection(FirestoreSchema.USERS).document(userId)
-                        .collection(FirestoreSchema.STEPS_ENTRIES).document(entry.id)
+                        .collection(FirestoreSchema.STEPS).document(entry.id)
                         .set(entry.toStepsFirestoreMap()).await()
                     db.stepDao().insertSteps(entry.copy(isSynced = true, syncedAt = System.currentTimeMillis()))
                 }
-            } catch (e: Exception) { e.printStackTrace() }
+
+            }
         }
     }
 
     private suspend fun syncWeight(userId: String) {
         val unsynced = db.weightDao().getUnsyncedWeight().first()
         for (entry in unsynced) {
-            try {
+            retry {
                 if (entry.isDeleted) {
                     firestore.collection(FirestoreSchema.USERS).document(userId)
-                        .collection(FirestoreSchema.WEIGHT_ENTRIES).document(entry.id).delete().await()
+                        .collection(FirestoreSchema.WEIGHT).document(entry.id).delete().await()
                 } else {
                     firestore.collection(FirestoreSchema.USERS).document(userId)
-                        .collection(FirestoreSchema.WEIGHT_ENTRIES).document(entry.id)
+                        .collection(FirestoreSchema.WEIGHT).document(entry.id)
                         .set(entry.toWeightFirestoreMap()).await()
                     db.weightDao().insertWeight(entry.copy(isSynced = true, syncedAt = System.currentTimeMillis()))
                 }
-            } catch (e: Exception) { e.printStackTrace() }
+
+            }
         }
     }
 
     private suspend fun syncHabits(userId: String) {
         val unsynced = db.habitDao().getUnsyncedHabits().first()
         for (habit in unsynced) {
-            try {
+            retry {
                 firestore.collection(FirestoreSchema.USERS).document(userId)
                     .collection(FirestoreSchema.HABITS).document(habit.id)
                     .set(habit.toHabitFirestoreMap()).await()
                 db.habitDao().insertHabit(habit.copy(isSynced = true, syncedAt = System.currentTimeMillis()))
-            } catch (e: Exception) { e.printStackTrace() }
+            }
         }
     }
 
     private suspend fun syncMeasurements(userId: String) {
         val unsynced = db.bodyMeasurementDao().getUnsyncedMeasurements().first()
         for (m in unsynced) {
-            try {
+            retry {
                 firestore.collection(FirestoreSchema.USERS).document(userId)
                     .collection(FirestoreSchema.BODY_MEASUREMENTS).document(m.id)
                     .set(m.toMeasurementFirestoreMap()).await()
                 db.bodyMeasurementDao().insertMeasurement(m.copy(isSynced = true, syncedAt = System.currentTimeMillis()))
-            } catch (e: Exception) { e.printStackTrace() }
+            }
         }
     }
 
     private suspend fun syncReports(userId: String) {
         val unsynced = db.weeklyReportDao().getUnsyncedReports().first()
         for (r in unsynced) {
-            try {
+            retry {
                 firestore.collection(FirestoreSchema.USERS).document(userId)
                     .collection(FirestoreSchema.WEEKLY_REPORTS).document(r.id)
                     .set(r.toReportFirestoreMap()).await()
                 db.weeklyReportDao().insertReport(r.copy(isSynced = true, syncedAt = System.currentTimeMillis()))
-            } catch (e: Exception) { e.printStackTrace() }
+            }
+        }
+    }
+    private suspend fun syncPhotos(userId: String) {
+        val unsynced = db.photoDao().getUnsyncedPhotos().first()
+        for (photo in unsynced) {
+            retry {
+                if (photo.isDeleted) {
+                    firestore.collection(FirestoreSchema.USERS).document(userId)
+                        .collection(FirestoreSchema.PROGRESS).document(photo.id).delete().await()
+                    // Note: We don't delete from Storage here to avoid complexity with StorageRepo dependency in SyncManager, 
+                    // or we could add it. For now, Firestore deletion is standard.
+                    db.photoDao().deletePhoto(photo)
+                } else {
+                    firestore.collection(FirestoreSchema.USERS).document(userId)
+                        .collection(FirestoreSchema.PROGRESS).document(photo.id)
+                        .set(photo.toPhotoFirestoreMap()).await()
+
+                    db.photoDao().insertPhoto(photo.copy(isSynced = true, syncedAt = System.currentTimeMillis()))
+                }
+
+            }
         }
     }
 }
+

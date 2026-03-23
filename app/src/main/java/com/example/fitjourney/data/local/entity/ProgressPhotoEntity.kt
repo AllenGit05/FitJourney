@@ -16,3 +16,14 @@ data class ProgressPhotoEntity(
     val firestoreId: String = "",
     val isDeleted: Boolean = false
 )
+
+fun ProgressPhotoEntity.toPhotoFirestoreMap(): Map<String, Any> {
+    return mapOf(
+        "id" to id,
+        "date" to date,
+        "imageUrl" to imageUrl,
+        "weight" to weight,
+        "note" to note
+    )
+}
+

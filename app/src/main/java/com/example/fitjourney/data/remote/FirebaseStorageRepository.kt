@@ -9,9 +9,17 @@ class FirebaseStorageRepository(private val storage: FirebaseStorage) {
 
     suspend fun uploadProgressPhoto(userId: String, photoId: String, uri: Uri): String {
         val ref = storage.reference.child("users/$userId/progress_photos/$photoId.jpg")
-        val uploadTask = ref.putFile(uri).await()
+        ref.putFile(uri).await()
         return ref.downloadUrl.await().toString()
     }
+
+    suspend fun uploadProfilePhoto(userId: String, uri: Uri): String {
+        val ref = storage.reference.child("profile_pictures/$userId.jpg")
+        ref.putFile(uri).await()
+        return ref.downloadUrl.await().toString()
+    }
+
+
 
     suspend fun deleteProgressPhoto(userId: String, photoId: String) {
         val ref = storage.reference.child("users/$userId/progress_photos/$photoId.jpg")

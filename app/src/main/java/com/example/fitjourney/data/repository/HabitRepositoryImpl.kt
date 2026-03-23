@@ -72,8 +72,12 @@ class HabitRepositoryImpl(
             isCompletedToday = if (today) existingLog == null else habit.isCompletedToday,
             currentStreak = streak,
             bestStreak = if (streak > habit.bestStreak) streak else habit.bestStreak,
+            isMastered = streak >= 21,
+            isMilestone = streak >= 21,
             freezesUsedThisWeek = usedFreezesInCalculation
         )
+
+
         
         habitDao.insertHabit(updatedHabit.toEntity().copy(
             isSynced = false,
@@ -165,12 +169,16 @@ class HabitRepositoryImpl(
         currentStreak = currentStreak,
         bestStreak = bestStreak,
         isCompletedToday = isCompletedToday,
+        isMastered = isMastered,
+        isMilestone = isMilestone,
         freezesUsedThisWeek = freezesUsedThisWeek,
+
         logs = try {
             val listType = object : com.google.gson.reflect.TypeToken<List<HabitLog>>() {}.type
             com.google.gson.Gson().fromJson(logsJson, listType) ?: emptyList()
         } catch (e: Exception) { emptyList() }
     )
+
 
     private fun Habit.toEntity(): HabitEntity = HabitEntity(
         id = id,
@@ -179,7 +187,11 @@ class HabitRepositoryImpl(
         currentStreak = currentStreak,
         bestStreak = bestStreak,
         isCompletedToday = isCompletedToday,
+        isMastered = isMastered,
+        isMilestone = isMilestone,
         freezesUsedThisWeek = freezesUsedThisWeek,
+
         logsJson = com.google.gson.Gson().toJson(logs)
     )
+
 }

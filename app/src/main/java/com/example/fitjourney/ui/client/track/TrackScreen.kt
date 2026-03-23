@@ -91,21 +91,7 @@ fun TrackScreen(
                 }
             }
 
-            // ── 3. Water Intake Section ──────────────────────────
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = FJSurface),
-                    shape = RoundedCornerShape(24.dp)
-                ) {
-                    Column(Modifier.padding(20.dp)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            WaterQuickButton("-1000", { viewModel.removeSteps(1000) }, isNegative = true)
-                            WaterQuickButton("+1000", { viewModel.logSteps(1000) })
-                        }
-                    }
-                }
-            }
+
 
             // ── 3. Water Intake Section ──────────────────────────
             item {
@@ -141,16 +127,7 @@ fun TrackScreen(
                     ToolButton("Macros Calculator", "Optimize your nutrient breakdown", Icons.Default.PieChart, onNavigateToMacros)
                 }
                 Spacer(Modifier.height(8.dp))
-                Button(
-                    onClick = { /* TODO: Health Connect */ },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = FJSurfaceHigh),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Icon(Icons.Default.HealthAndSafety, null, tint = FJGold)
-                    Spacer(Modifier.width(12.dp))
-                    Text("Connect Health App", color = FJTextPrimary, fontWeight = FontWeight.Bold)
-                }
+
             }
         }
     }

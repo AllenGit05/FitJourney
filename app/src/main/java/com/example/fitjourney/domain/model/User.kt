@@ -34,12 +34,12 @@ data class User(
     val calorieGoal: Int = 2000,
     val fitnessGoal: String = "Maintain Weight", // Lose Weight, Maintain Weight, Gain Weight
     // AI Coach Customization
-    val coachPersona: String = "Aurora", // Aurora, Rex, Zen, Custom
-    val customCoachPersona: String = "",
+    val coachPersona: String = "Aurora", // Aurora, Rex, Zen
+
     val coachGender: String = "Female", // Male, Female
     val coachName: String = "Aurora",
     val lastGreeting: String = "",
     val lastGreetingDate: String = "", // Format: "YYYY-MM-DD"
     val profilePictureUri: String? = null,
-    val speakingLanguage: String = "en" // en, hi, ml
+    val englishAccent: String = "en-in" // en-us, en-gb, en-in, en-au
 )

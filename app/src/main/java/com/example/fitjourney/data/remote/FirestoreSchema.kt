@@ -8,14 +8,15 @@ object FirestoreSchema {
 
     // Sub-collections under users/{userId}/
     const val WORKOUTS = "workouts"
-    const val DIET_ENTRIES = "diet_entries"
-    const val WATER_ENTRIES = "water_entries"
-    const val STEPS_ENTRIES = "steps_entries"
-    const val WEIGHT_ENTRIES = "weight_entries"
+    const val DIET = "diet"
+    const val WATER = "water"
+    const val STEPS = "steps"
+    const val WEIGHT = "weight"
     const val CHAT_MESSAGES = "chat_messages"
     const val HABITS = "habits"
-    const val PROGRESS_PHOTO_METADATA = "progress_photo_metadata"
+    const val PROGRESS = "progress"
     const val BODY_MEASUREMENTS = "body_measurements"
+
     const val WEEKLY_REPORTS = "weekly_reports"
 
     // Field names — must match exactly in all operations

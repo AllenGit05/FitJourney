@@ -49,15 +49,7 @@ class TrackViewModel(
         }
     }
 
-    fun removeSteps(count: Int) {
-        viewModelScope.launch {
-            val current = steps.value
-            val toRemove = if (current - count < 0) current else count
-            if (toRemove > 0) {
-                progressRepository.logSteps(-toRemove)
-            }
-        }
-    }
+
 
     fun updateGoals(stepGoal: Int, waterGoal: Int) {
         viewModelScope.launch {

@@ -37,7 +37,7 @@ data class UserEntity(
     val lastGreeting: String,
     val lastGreetingDate: String,
     val profilePictureUri: String? = null,
-    val speakingLanguage: String = "en",
+    val englishAccent: String = "en-in",
     val isSynced: Boolean = false,
     val syncedAt: Long = 0L,
     val firestoreId: String = "",

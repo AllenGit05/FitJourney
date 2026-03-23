@@ -30,7 +30,7 @@ sealed class Screen(val route: String) {
     // Admin Routes
     object AdminDashboard : Screen("admin_dashboard")
     object AdminApiManagement : Screen("admin_api_management")
-    object AdminManagement : Screen("admin_management")
     object AdminProfile : Screen("admin_profile")
+
     object FirebaseDiagnostic : Screen("firebase_diagnostic")
 }

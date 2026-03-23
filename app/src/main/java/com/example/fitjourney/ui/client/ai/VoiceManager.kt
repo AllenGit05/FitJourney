@@ -64,10 +64,7 @@ class VoiceManager(
         stopSpeaking() // Ensure AI stops when user starts talking
         onRecognitionFinished = onResult
         _transcript.value = "Listening..."
-        val recognitionLocale = when (currentPersona) {
-            "Arjun" -> "en-IN"
-            else    -> Locale.getDefault().toLanguageTag()
-        }
+        val recognitionLocale = Locale.getDefault().toLanguageTag()
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, recognitionLocale)
@@ -115,12 +112,28 @@ class VoiceManager(
     }
 
     fun speakWithPersona(
-        text: String, 
-        persona: String?, 
-        gender: String?, 
+        text: String,
+        persona: String?,
+        gender: String?,
+        englishAccent: String = "en-in",
         onFinished: () -> Unit = {}
     ) {
         if (!isTtsReady) return
+
+        val locale = when (englishAccent) {
+            "en-in" -> java.util.Locale("en", "IN")
+            "en-gb" -> java.util.Locale("en", "GB")
+            "en-au" -> java.util.Locale("en", "AU")
+            else    -> java.util.Locale("en", "US")
+        }
+        val localeResult = tts?.isLanguageAvailable(locale)
+        if (localeResult == android.speech.tts.TextToSpeech.LANG_AVAILABLE ||
+            localeResult == android.speech.tts.TextToSpeech.LANG_COUNTRY_AVAILABLE ||
+            localeResult == android.speech.tts.TextToSpeech.LANG_COUNTRY_VAR_AVAILABLE) {
+            tts?.language = locale
+        } else {
+            tts?.language = java.util.Locale.ENGLISH
+        }
 
         // ── Voice Profile per Coach ──────────────────────────
         // pitch: < 1.0 = deeper, > 1.0 = higher
@@ -128,7 +141,6 @@ class VoiceManager(
         data class VoiceProfile(
             val pitch: Float,
             val rate: Float,
-            val locale: Locale,
             val preferredGender: String // "male" or "female"
         )
 
@@ -136,25 +148,16 @@ class VoiceManager(
             "Rex" -> VoiceProfile(
                 pitch = 0.75f,     // Deep, commanding voice
                 rate  = 1.2f,      // Fast, energetic
-                locale = Locale.US,
                 preferredGender = "male"
             )
             "Zen" -> VoiceProfile(
                 pitch = 0.95f,     // Calm, neutral
                 rate  = 0.75f,     // Slow, meditative
-                locale = Locale.US,
-                preferredGender = "male"
-            )
-            "Arjun" -> VoiceProfile(
-                pitch = 1.0f,      // Natural male Indian pitch
-                rate  = 1.05f,     // Slightly faster like natural Indian speech
-                locale = Locale("en", "IN"), // Indian English locale
                 preferredGender = "male"
             )
             else -> VoiceProfile(   // Aurora — default
                 pitch = 1.2f,      // Bright, friendly female
                 rate  = 1.0f,      // Normal pace
-                locale = Locale.US,
                 preferredGender = "female"
             )
         }
@@ -166,23 +169,23 @@ class VoiceManager(
 
         // First try exact locale match with gender
         var targetVoice = allVoices.firstOrNull { voice ->
-            voice.locale.language == profile.locale.language &&
-            voice.locale.country == profile.locale.country &&
+            voice.locale.language == locale.language &&
+            voice.locale.country == locale.country &&
             voice.name.lowercase().contains(profile.preferredGender)
         }
 
         // Fallback 1: Exact locale, any gender
         if (targetVoice == null) {
             targetVoice = allVoices.firstOrNull { voice ->
-                voice.locale.language == profile.locale.language &&
-                voice.locale.country == profile.locale.country
+                voice.locale.language == locale.language &&
+                voice.locale.country == locale.country
             }
         }
 
         // Fallback 2: Same language, any country, preferred gender
         if (targetVoice == null) {
             targetVoice = allVoices.firstOrNull { voice ->
-                voice.locale.language == profile.locale.language &&
+                voice.locale.language == locale.language &&
                 voice.name.lowercase().contains(profile.preferredGender)
             }
         }
@@ -201,7 +204,6 @@ class VoiceManager(
         }
 
         // Apply locale and voice
-        tts?.language = profile.locale
         targetVoice?.let { tts?.voice = it }
 
         speak(text, profile.pitch, profile.rate, onFinished)

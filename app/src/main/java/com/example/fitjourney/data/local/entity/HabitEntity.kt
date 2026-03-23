@@ -16,7 +16,11 @@ data class HabitEntity(
     val currentStreak: Int,
     val bestStreak: Int,
     val isCompletedToday: Boolean,
+    val isMastered: Boolean = false,
+    val isMilestone: Boolean = false,
     val freezesUsedThisWeek: Int = 0,
     val lastFreezeResetDate: String = "", // format: YYYY-WW
-    val logsJson: String // Using TypeConverter or storing as JSON string directly if preferred, but I'll use TypeConverter for consistency with WorkoutEntity pattern
+
+    val logsJson: String
 )
+

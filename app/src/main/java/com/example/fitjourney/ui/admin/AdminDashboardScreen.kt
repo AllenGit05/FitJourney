@@ -32,17 +32,15 @@ import com.example.fitjourney.ui.theme.*
 fun AdminDashboardScreen(
     viewModel: AdminDashboardViewModel,
     onNavigateToApi: () -> Unit,
-    onNavigateToAdmins: () -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToDiagnostics: () -> Unit,
     onLogout: () -> Unit
+
 ) {
     val totalClients  by viewModel.totalClients.collectAsState()
     val totalAdmins   by viewModel.totalAdmins.collectAsState()
     val isLoading     by viewModel.isLoading.collectAsState()
-    val isSyncing     by viewModel.isSyncing.collectAsState()
-    val syncMessage   by viewModel.syncMessage.collectAsState()
-    val lastSyncTime  by viewModel.lastSyncTime.collectAsState()
+
 
     Box(modifier = Modifier.fillMaxSize().background(FJBackground)) {
         Scaffold(
@@ -101,8 +99,6 @@ fun AdminDashboardScreen(
 
                 AdminNavCard(icon = Icons.Default.Key, label = "Manage APIs",
                     sub = "Configure AI Coach provider keys", onClick = onNavigateToApi)
-                AdminNavCard(icon = Icons.Default.AdminPanelSettings, label = "Manage Admins",
-                    sub = "Add or remove admin accounts", onClick = onNavigateToAdmins)
                 AdminNavCard(
                     icon = Icons.Default.Person,
                     label = "Admin Profile",
@@ -112,39 +108,6 @@ fun AdminDashboardScreen(
                 AdminNavCard(icon = Icons.Default.LocalFireDepartment, label = "Firebase Diagnostics",
                     sub = "Run system-wide integration tests", onClick = onNavigateToDiagnostics)
 
-                Text("Cloud Sync", color = FJTextSecondary, fontSize = 14.sp)
-                
-                Box(
-                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
-                        .background(FJSurface).padding(18.dp)
-                ) {
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.CloudSync, null, tint = FJGold)
-                            Spacer(Modifier.width(12.dp))
-                            Text("Database Sync Status", color = FJTextPrimary, fontWeight = FontWeight.SemiBold)
-                        }
-                        Spacer(Modifier.height(12.dp))
-                        Text(
-                            text = if (isSyncing) "Syncing..." else if (lastSyncTime == null) "Not synced yet" 
-                                   else "Last synced: ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(lastSyncTime!!))}",
-                            color = FJTextSecondary,
-                            fontSize = 13.sp
-                        )
-                        if (syncMessage != null) {
-                            Text(syncMessage!!, color = if (syncMessage!!.contains("failed")) FJError else FJGold, fontSize = 12.sp)
-                        }
-                        Spacer(Modifier.height(16.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Button(
-                                onClick = { viewModel.triggerSync() },
-                                enabled = !isSyncing,
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(containerColor = FJGold, contentColor = FJOnGold)
-                            ) { Text("Force Sync", fontSize = 13.sp) }
-                        }
-                    }
-                }
             }
         }
     }

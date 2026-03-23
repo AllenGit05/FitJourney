@@ -4,20 +4,65 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import com.example.fitjourney.di.AppViewModelProvider
 
-@Composable
-fun FitJourneyNavGraph(
-    navController: NavHostController,
-    startDestination: String = Screen.Login.route
-) {
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+
+@androidx.compose.runtime.Composable
+fun FitJourneyNavGraph(navController: NavHostController) {
+
+    val mainViewModel: com.example.fitjourney.ui.MainViewModel =
+        androidx.lifecycle.viewmodel.compose.viewModel(
+            factory = com.example.fitjourney.di.AppViewModelProvider.Factory
+        )
+    val startDestination by mainViewModel.startDestination
+        .collectAsState()
+
+    when (startDestination) {
+        is com.example.fitjourney.ui.AppStartDestination.Loading -> {
+            // Show splash while resolving
+            Box(
+                modifier = Modifier.fillMaxSize()
+                    .background(
+                        com.example.fitjourney.ui.theme.FJBackground
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    androidx.compose.material3.CircularProgressIndicator(
+                        color = com.example.fitjourney.ui.theme.FJGold
+                    )
+                    androidx.compose.material3.Text(
+                        "Loading...",
+                        color = com.example.fitjourney.ui.theme.FJTextSecondary
+                    )
+                }
+            }
+            return
+        }
+        else -> Unit
+    }
+
+    val initialRoute = when (startDestination) {
+        is com.example.fitjourney.ui.AppStartDestination.AdminDashboard ->
+            Screen.AdminDashboard.route
+        is com.example.fitjourney.ui.AppStartDestination.ClientDashboard ->
+            Screen.Main.route
+        else -> Screen.Login.route
+    }
+
     NavHost(
         navController = navController,
-        startDestination = startDestination
+        startDestination = initialRoute
     ) {
         composable(route = Screen.Login.route) {
             val viewModel: com.example.fitjourney.ui.auth.AuthViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
@@ -86,6 +131,7 @@ fun FitJourneyNavGraph(
                         popUpTo(0) { inclusive = true }
                     }
                 },
+
                 onNavigateToDiet = { navController.navigate(Screen.ClientDiet.route) },
                 onNavigateToWorkout = { navController.navigate(Screen.ClientWorkout.route) },
                 onNavigateToSettings = { navController.navigate(Screen.ClientSettings.route) },
@@ -284,7 +330,6 @@ fun FitJourneyNavGraph(
             com.example.fitjourney.ui.admin.AdminDashboardScreen(
                 viewModel = viewModel,
                 onNavigateToApi = { navController.navigate(Screen.AdminApiManagement.route) },
-                onNavigateToAdmins = { navController.navigate(Screen.AdminManagement.route) },
                 onNavigateToProfile = { navController.navigate(Screen.AdminProfile.route) },
                 onNavigateToDiagnostics = { navController.navigate(Screen.FirebaseDiagnostic.route) },
                 onLogout = { shouldLogout = true }
@@ -299,16 +344,8 @@ fun FitJourneyNavGraph(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
-        composable(route = Screen.AdminManagement.route) {
-            val viewModel: com.example.fitjourney.ui.admin.management.AdminManagementViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = AppViewModelProvider.Factory
-            )
-            com.example.fitjourney.ui.admin.management.AdminManagementScreen(
-                viewModel = viewModel,
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
         composable(route = Screen.AdminProfile.route) {
+
             val viewModel: com.example.fitjourney.ui.admin.AdminProfileViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
                 factory = AppViewModelProvider.Factory
             )

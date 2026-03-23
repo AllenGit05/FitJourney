@@ -2,3 +2,4 @@
 google-services.json
 *.keystore
 *.jks
+local.properties

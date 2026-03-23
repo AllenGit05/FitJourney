@@ -165,61 +165,9 @@ fun AdminApiManagementScreen(
                 )
             }
 
-            // ── ELEVENLABS SECTION ──
-            item {
-                ApiKeySection(
-                    title = "ElevenLabs API",
-                    subtitle = "Voice Synthesis — Multilingual v2",
-                    badgeText = "VOICE TTS",
-                    badgeColor = Color(0xFFE91E63), // Pinkish for voice
-                    keyInput = uiState.elevenLabsKeyInput,
-                    keyVisible = uiState.elevenLabsKeyVisible,
-                    isKeySaved = uiState.isElevenLabsKeySaved,
-                    status = uiState.elevenLabsStatus,
-                    statusMessage = uiState.elevenLabsStatusMessage,
-                    isTesting = uiState.isTestingElevenLabs,
-                    placeholder = "eleven_...",
-                    getKeyUrl = "elevenlabs.io",
-                    onKeyChanged = viewModel::onElevenLabsKeyChanged,
-                    onToggleVisibility = viewModel::toggleElevenLabsKeyVisibility,
-                    onSave = viewModel::saveElevenLabsKey,
-                    onDelete = viewModel::deleteElevenLabsKey,
-                    onTest = viewModel::testElevenLabsConnection,
-                    onLiveTest = { /* Not needed for TTS */ },
-                    onClearStatus = viewModel::clearElevenLabsStatus
-                )
-            }
 
-            item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1215)),
-                    border = BorderStroke(1.dp, Color(0xFFE91E63).copy(0.4f)),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
-                        Text("🎤", fontSize = 16.sp)
-                        Spacer(Modifier.width(8.dp))
-                        Column {
-                            Text(
-                                "ElevenLabs Free Tier Info",
-                                color = Color(0xFFE91E63),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                "• 10,000 characters/month (refills monthly)\n" +
-                                "• Standard API access to all voices\n" +
-                                "• Attribution required for free tier usage\n\n" +
-                                "The app automatically falls back to local Android TTS if quota is exceeded or key is missing.",
-                                color = FJTextSecondary,
-                                fontSize = 11.sp
-                            )
-                        }
-                    }
-                }
-            }
         }
+
 
         if (showLiveTestProvider != null) {
             AdminApiTestDialog(

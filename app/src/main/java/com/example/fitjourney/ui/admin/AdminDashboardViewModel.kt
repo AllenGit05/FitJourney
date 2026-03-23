@@ -24,15 +24,6 @@ class AdminDashboardViewModel(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private val _isSyncing = MutableStateFlow(false)
-    val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
-
-    private val _lastSyncTime = MutableStateFlow<Long?>(null)
-    val lastSyncTime: StateFlow<Long?> = _lastSyncTime.asStateFlow()
-
-    private val _syncMessage = MutableStateFlow<String?>(null)
-    val syncMessage: StateFlow<String?> = _syncMessage.asStateFlow()
-
     init {
         loadStats()
     }
@@ -52,9 +43,8 @@ class AdminDashboardViewModel(
                 // We don't count from Firestore since admins bypass Firestore entirely
                 _totalAdmins.value = 1
             } catch (e: Exception) {
-                // Network error — show 0 with error state
+                // Network error — show 0
                 _totalClients.value = 0
-                _syncMessage.value = "Could not load stats: ${e.message}"
             } finally {
                 _isLoading.value = false
             }
@@ -64,20 +54,5 @@ class AdminDashboardViewModel(
     fun refreshStats() {
         loadStats()
     }
-
-    fun triggerSync() {
-        viewModelScope.launch {
-            _isSyncing.value = true
-            _syncMessage.value = "Starting manual sync..."
-            try {
-                syncManager?.startSync()
-                _lastSyncTime.value = System.currentTimeMillis()
-                _syncMessage.value = "All data synced to cloud successfully"
-            } catch (e: Exception) {
-                _syncMessage.value = "Sync failed. Check internet connection."
-            } finally {
-                _isSyncing.value = false
-            }
-        }
-    }
 }
+

@@ -124,11 +124,18 @@ fun AiCoachScreen(
                     val coachName = when(user?.coachPersona) {
                         "Rex"    -> "Coach Rex 💪"
                         "Zen"    -> "Zen Master 🧘"
-                        "Arjun"  -> "Coach Arjun 🇮🇳"
-                        "Custom" -> "My Coach"
                         else     -> "Coach Aurora ✨"
                     }
-                    Text(coachName, color = FJTextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
+
+                    Column {
+                        Text(coachName, color = FJTextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                        Text(
+                            text = if (user?.isPremium == true) "Premium • Unlimited" else "${user?.aiCredits ?: 0} Credits Remaining",
+                            color = if (user?.isPremium == true) Color(0xFF4CAF50) else FJGold,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
@@ -166,7 +173,7 @@ fun AiCoachScreen(
                 .fillMaxSize()
                 .padding(top = padding.calculateTopPadding())
         ) {
-            // Credit Status Bar - Replaced kcal/workout stats
+            // Standard Summary Row
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -175,62 +182,11 @@ fun AiCoachScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
-                if (user?.isPremium == true) {
-                    Icon(Icons.Default.Security, null, tint = Color(0xFF4CAF50), modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Premium Membership • Unlimited Access", color = Color(0xFF4CAF50), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                } else {
-                    Icon(Icons.Default.CreditCard, null, tint = FJGold, modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("${user?.aiCredits ?: 0} AI Credits Remaining", color = FJGold, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
-                }
-            }
-
-            // Voice Language Toggle
-            val speakingLang = user?.speakingLanguage ?: "en"
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(FJSurface)
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
                 Text(
-                    "🎙️ Voice:",
+                    "Today: ${calories} kcal • ${workouts} workouts",
                     color = FJTextSecondary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
+                    fontSize = 13.sp
                 )
-                listOf(
-                    "en" to "English",
-                    "hi" to "हिंदी",
-                    "ml" to "മലയാളം"
-                ).forEach { (code, label) ->
-                    val isSelected = speakingLang == code
-                    Surface(
-                        onClick = { viewModel.setSpeakingLanguage(code) },
-                        color = if (isSelected) FJGold else FJBackground,
-                        shape = RoundedCornerShape(20.dp),
-                        border = if (isSelected) null
-                                 else androidx.compose.foundation.BorderStroke(
-                                     1.dp, FJDivider
-                                 ),
-                        modifier = Modifier.height(30.dp)
-                    ) {
-                        Text(
-                            text = label,
-                            color = if (isSelected) FJOnGold else FJTextSecondary,
-                            fontSize = 12.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold
-                                         else FontWeight.Normal,
-                            modifier = Modifier.padding(
-                                horizontal = 12.dp, vertical = 6.dp
-                            )
-                        )
-                    }
-                }
             }
 
             // Chat area
@@ -536,23 +492,8 @@ fun PersonaSelectionDialog(
                 PersonaOption("Aurora", "Supportive & Encouraging", "Supportive", selected == "Aurora") { selected = "Aurora" }
                 PersonaOption("Rex", "Strict & High Energy", "No-nonsense", selected == "Rex") { selected = "Rex" }
                 PersonaOption("Zen", "Calm & Mindful", "Holistic", selected == "Zen") { selected = "Zen" }
-                PersonaOption("Arjun", "Coach Arjun 🇮🇳", "Desi • Warm", selected == "Arjun") { selected = "Arjun" }
-                PersonaOption("Custom", "Your Own Creation", "Define Personality", selected == "Custom") { selected = "Custom" }
-
-                if (selected == "Custom") {
-                    OutlinedTextField(
-                        value = customBio,
-                        onValueChange = { customBio = it },
-                        placeholder = { Text("e.g. 'A friendly dog who loves fitness'", color = FJTextSecondary, fontSize = 12.sp) },
-                        modifier = Modifier.fillMaxWidth(),
-                        textStyle = androidx.compose.ui.text.TextStyle(color = FJTextPrimary, fontSize = 14.sp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = FJGold,
-                            unfocusedBorderColor = FJSurfaceHigh
-                        )
-                    )
-                }
             }
+
         },
         confirmButton = {
             Button(

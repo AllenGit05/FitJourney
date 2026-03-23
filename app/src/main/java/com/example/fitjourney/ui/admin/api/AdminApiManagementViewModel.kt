@@ -35,16 +35,9 @@ data class AdminApiUiState(
     val testResponse: String? = null,
     val isLiveTesting: Boolean = false,
     val geminiRateLimitAt: Long = 0L,
-    val groqRateLimitAt: Long = 0L,
-
-    // ElevenLabs
-    val elevenLabsKeyInput: String = "",
-    val elevenLabsKeyVisible: Boolean = false,
-    val isElevenLabsKeySaved: Boolean = false,
-    val elevenLabsStatus: String = "UNKNOWN",
-    val elevenLabsStatusMessage: String = "",
-    val isTestingElevenLabs: Boolean = false
+    val groqRateLimitAt: Long = 0L
 )
+
 
 class AdminApiManagementViewModel(
     private val apiKeyStore: ApiKeyStore
@@ -60,17 +53,15 @@ class AdminApiManagementViewModel(
         viewModelScope.launch {
             val savedGemini = apiKeyStore.getGeminiApiKey()
             val savedGroq = apiKeyStore.getGroqApiKey()
-            val savedElevenLabs = apiKeyStore.getElevenLabsApiKey()
             _uiState.update {
                 it.copy(
                     geminiKeyInput = savedGemini,
                     isGeminiKeySaved = savedGemini.isNotBlank(),
                     groqKeyInput = savedGroq,
-                    isGroqKeySaved = savedGroq.isNotBlank(),
-                    elevenLabsKeyInput = savedElevenLabs,
-                    isElevenLabsKeySaved = savedElevenLabs.isNotBlank()
+                    isGroqKeySaved = savedGroq.isNotBlank()
                 )
             }
+
             
             // Auto-clear stale rate limit status (resets after 60s for RPM limits)
             val now = System.currentTimeMillis()
@@ -303,67 +294,5 @@ class AdminApiManagementViewModel(
             )
         }
     }
-
-    // ── ElevenLabs ─────────────────────────────────────────
-    fun onElevenLabsKeyChanged(key: String) {
-        _uiState.update { it.copy(elevenLabsKeyInput = key, isElevenLabsKeySaved = false) }
-    }
-
-    fun toggleElevenLabsKeyVisibility() {
-        _uiState.update { it.copy(elevenLabsKeyVisible = !it.elevenLabsKeyVisible) }
-    }
-
-    fun saveElevenLabsKey() {
-        viewModelScope.launch {
-            val key = _uiState.value.elevenLabsKeyInput.trim()
-            if (key.isBlank()) return@launch
-            apiKeyStore.saveElevenLabsApiKey(key)
-            _uiState.update {
-                it.copy(
-                    isElevenLabsKeySaved = true,
-                    elevenLabsStatus = "UNKNOWN",
-                    successMessage = "ElevenLabs key saved"
-                )
-            }
-        }
-    }
-
-    fun deleteElevenLabsKey() {
-        viewModelScope.launch {
-            apiKeyStore.clearElevenLabsApiKey()
-            _uiState.update {
-                it.copy(
-                    elevenLabsKeyInput = "",
-                    isElevenLabsKeySaved = false,
-                    elevenLabsStatus = "UNKNOWN",
-                    elevenLabsStatusMessage = ""
-                )
-            }
-        }
-    }
-
-    fun testElevenLabsConnection() {
-        viewModelScope.launch {
-            val key = _uiState.value.elevenLabsKeyInput.trim()
-            if (key.isBlank()) return@launch
-            _uiState.update { it.copy(isTestingElevenLabs = true) }
-            val (success, message) = withContext(Dispatchers.IO) {
-                com.example.fitjourney.data.remote.ElevenLabsClient()
-                    .testConnection(key)
-            }
-            _uiState.update {
-                it.copy(
-                    isTestingElevenLabs = false,
-                    elevenLabsStatus = if (success) "ONLINE" else "ERROR",
-                    elevenLabsStatusMessage = message
-                )
-            }
-        }
-    }
-
-    fun clearElevenLabsStatus() {
-        _uiState.update {
-            it.copy(elevenLabsStatus = "UNKNOWN", elevenLabsStatusMessage = "")
-        }
-    }
 }
+

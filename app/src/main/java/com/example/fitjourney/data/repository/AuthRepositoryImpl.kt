@@ -29,6 +29,7 @@ class AuthRepositoryImpl(
     private val adminConfig: AdminConfig,
     private val database: com.example.fitjourney.data.local.FitJourneyDatabase? = null
 ) : AuthRepository {
+    private val repositoryScope = CoroutineScope(Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
 
     private val _currentUser = MutableStateFlow<User?>(null)
     override val currentUser: Flow<User?> = _currentUser
@@ -46,7 +47,7 @@ class AuthRepositoryImpl(
     }
 
     private fun loadUserFromCache(uid: String) {
-        CoroutineScope(Dispatchers.IO).launch {
+        repositoryScope.launch {
             userDao.getUserById(uid).first()?.let { entity ->
                 _currentUser.value = mapToDomain(entity)
             }
@@ -59,32 +60,63 @@ class AuthRepositoryImpl(
                 throw Exception("Email and password are required.")
             }
 
-            // Step 1: Authenticate with Firebase Auth
+            // Step 1: Sanitize and Authenticate
+            val sanitizedEmail = email.trim().lowercase()
             val authResult = auth.signInWithEmailAndPassword(
-                email.trim(), password
+                sanitizedEmail, password
             ).await()
 
             val firebaseUser = authResult.user
                 ?: throw Exception("Login failed. Please try again.")
 
             // Step 2: Check admin BEFORE touching Firestore
-            val isAdmin = adminConfig.isAdminEmail(email.trim())
+            val isAdmin = adminConfig.isAdminEmail(sanitizedEmail)
 
             if (isAdmin) {
-                val adminUser = User(
+                val adminUser = com.example.fitjourney.domain.model.User(
                     uid = firebaseUser.uid,
-                    email = firebaseUser.email ?: email.trim(),
+                    email = firebaseUser.email ?: sanitizedEmail,
                     username = "Admin",
-                    role = UserRole.ADMIN,
+                    role = com.example.fitjourney.domain.model.UserRole.ADMIN,
                     isPremium = true,
                     aiCredits = 999,
                     xp = 0,
-                    level = 1
+                    level = 1,
+                    gender = "",
+                    dob = "",
+                    height = "0",
+                    weight = "0",
+                    goalWeight = "0",
+                    activityLevel = "MODERATE",
+                    foodType = "BALANCED",
+                    fitnessGoal = "Maintain Weight",
+                    stepGoal = 10000,
+                    waterGoal = 2500,
+                    calorieGoal = 2000,
+                    coachPersona = "Aurora",
+                    coachGender = "Female",
+                    coachName = "Aurora",
+                    customCoachPersona = "",
+                    lastGreeting = "",
+                    lastGreetingDate = "",
+                    lastActiveDate = "",
+                    currentStreak = 0,
+                    longestStreak = 0,
+                    dailyAiMessagesCount = 0,
+                    lastAiMessageDate = "",
+                    lastCreditResetMonth = -1,
+                    englishAccent = "en-in"
                 )
-                userDao.insertUser(mapToEntity(adminUser))
+                try {
+                    userDao.insertUser(mapToEntity(adminUser))
+                } catch (e: Exception) {
+                    // If Room insert fails, still allow admin login
+                    e.printStackTrace()
+                }
                 _currentUser.value = adminUser
                 return Result.success(adminUser)
             }
+
 
             // Step 3: Regular user — fetch from Firestore
             val doc = firestore
@@ -112,7 +144,9 @@ class AuthRepositoryImpl(
         } catch (e: com.google.firebase.auth.FirebaseAuthInvalidUserException) {
             Result.failure(Exception("No account found with this email."))
         } catch (e: com.google.firebase.auth.FirebaseAuthInvalidCredentialsException) {
-            Result.failure(Exception("Incorrect password. Please try again."))
+            Result.failure(Exception("Incorrect password or email. Please try again."))
+        } catch (e: com.google.firebase.FirebaseNetworkException) {
+            Result.failure(Exception("Network error. Please check your connection and try again."))
         } catch (e: Exception) {
             Result.failure(Exception(e.message ?: "Login failed. Please try again."))
         }
@@ -244,7 +278,7 @@ class AuthRepositoryImpl(
             lastGreeting = data["lastGreeting"] as? String ?: "",
             lastGreetingDate = data["lastGreetingDate"] as? String ?: "",
             profilePictureUri = data["profilePictureUri"] as? String,
-            speakingLanguage = data["speakingLanguage"] as? String ?: "en"
+            englishAccent = data["englishAccent"] as? String ?: "en-in"
         )
     }
 
@@ -281,7 +315,7 @@ class AuthRepositoryImpl(
             "lastGreeting" to user.lastGreeting,
             "lastGreetingDate" to user.lastGreetingDate,
             "profilePictureUri" to user.profilePictureUri,
-            "speakingLanguage" to user.speakingLanguage
+            "englishAccent" to user.englishAccent
         )
     }
 
@@ -319,7 +353,7 @@ class AuthRepositoryImpl(
             lastGreeting = user.lastGreeting,
             lastGreetingDate = user.lastGreetingDate,
             profilePictureUri = user.profilePictureUri,
-            speakingLanguage = user.speakingLanguage
+            englishAccent = user.englishAccent
         )
     }
 
@@ -357,7 +391,7 @@ class AuthRepositoryImpl(
             lastGreeting = entity.lastGreeting,
             lastGreetingDate = entity.lastGreetingDate,
             profilePictureUri = entity.profilePictureUri,
-            speakingLanguage = entity.speakingLanguage
+            englishAccent = entity.englishAccent
         )
     }
 
@@ -465,5 +499,25 @@ class AuthRepositoryImpl(
             Result.failure(Exception("Recovery failed: ${e.message}"))
         }
     }
+
+    override suspend fun deleteAccount(): Result<Unit> {
+        return try {
+            val user = auth.currentUser ?: throw Exception("Not logged in")
+            
+            // Delete from Firestore first
+            firestore.collection(FirestoreSchema.USERS).document(user.uid).delete().await()
+            
+            // Delete from Firebase Auth
+            user.delete().await()
+            
+            // Local cleanup
+            logout()
+            
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
+
 

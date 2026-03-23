@@ -1,0 +1,29 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "workouts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "date", "order": "DESCENDING" },
+        { "fieldPath": "isSynced", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "diet_entries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "date", "order": "DESCENDING" },
+        { "fieldPath": "isSynced", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "water_entries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "date", "order": "DESCENDING" },
+        { "fieldPath": "isSynced", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

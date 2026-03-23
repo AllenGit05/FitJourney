@@ -107,14 +107,14 @@ class ProgressRepositoryImpl(
     }
 
     override suspend fun deleteProgressPhoto(photo: ProgressPhoto) {
-        val userId = fireauth.currentUser?.uid ?: "anonymous"
-        
-        // Delete from Cloud
+        val userId = fireauth.currentUser?.uid ?: return
+        photoDao.softDelete(photo.id)
         storageRepo.deleteProgressPhoto(userId, photo.id)
-        
-        // Delete from Local (or soft delete)
-        photoDao.deletePhoto(com.example.fitjourney.data.local.entity.ProgressPhotoEntity(id = photo.id, date = photo.date, imageUrl = photo.imageUrl, weight = photo.weight, note = photo.note))
+        syncManager.startSync()
     }
+
+
+
 
     override suspend fun deleteMeasurement(measurement: com.example.fitjourney.domain.model.BodyMeasurement) {
         bodyMeasurementDao.softDelete(measurement.id)

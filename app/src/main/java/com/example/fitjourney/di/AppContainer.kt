@@ -78,8 +78,9 @@ class DefaultAppContainer(private val context: android.content.Context) : AppCon
     }
     
     override val userRepository: com.example.fitjourney.domain.repository.UserRepository by lazy {
-        com.example.fitjourney.data.repository.UserRepositoryImpl(authRepository, database.userDao())
+        com.example.fitjourney.data.repository.UserRepositoryImpl(authRepository, firebaseStorageRepository, database.userDao())
     }
+
     
     override val apiRepository: com.example.fitjourney.domain.repository.ApiRepository by lazy {
         com.example.fitjourney.data.repository.ApiRepositoryImpl(aiEngine)
@@ -133,6 +134,12 @@ class DefaultAppContainer(private val context: android.content.Context) : AppCon
 object AppViewModelProvider {
     val Factory = viewModelFactory {
         initializer {
+            com.example.fitjourney.ui.MainViewModel(
+                authRepository = fitJourneyApplication().container.authRepository
+            )
+        }
+
+        initializer {
             AuthViewModel(authRepository = fitJourneyApplication().container.authRepository)
         }
         initializer {
@@ -141,6 +148,7 @@ object AppViewModelProvider {
                 adminConfig = fitJourneyApplication().container.adminConfig
             )
         }
+
         initializer {
             com.example.fitjourney.ui.admin.AdminProfileViewModel(
                 authRepository = fitJourneyApplication().container.authRepository,
@@ -187,12 +195,10 @@ object AppViewModelProvider {
         }
         initializer {
             com.example.fitjourney.ui.client.settings.SettingsViewModel(
-                authRepository = fitJourneyApplication().container.authRepository,
-                userPreferences = fitJourneyApplication().container.userPreferences,
-                workoutReminderManager = fitJourneyApplication().container.workoutReminderManager,
-                exportManager = fitJourneyApplication().container.exportManager
+                authRepository = fitJourneyApplication().container.authRepository
             )
         }
+
         initializer {
             com.example.fitjourney.ui.client.ai.AiCoachViewModel(
                 userRepository = fitJourneyApplication().container.userRepository,

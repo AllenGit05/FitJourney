@@ -9,9 +9,13 @@ data class Habit(
     val currentStreak: Int = 0,
     val bestStreak: Int = 0,
     val isCompletedToday: Boolean = false,
+    val isMastered: Boolean = false,
+    val isMilestone: Boolean = false,
     val freezesUsedThisWeek: Int = 0,
     val logs: List<HabitLog> = emptyList()
+
 )
+
 
 data class HabitLog(
     val id: String = UUID.randomUUID().toString(),

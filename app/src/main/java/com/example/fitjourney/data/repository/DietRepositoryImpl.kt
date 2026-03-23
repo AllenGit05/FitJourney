@@ -37,9 +37,19 @@ class DietRepositoryImpl(
     }.stateIn(repositoryScope, SharingStarted.Eagerly, 0)
 
     override suspend fun addFood(entry: FoodLogEntry) {
-        dietDao.insertLog(entry.toEntity().copy(isSynced = false))
+        if (entry.name.isBlank()) return
+        
+        val validatedEntry = entry.copy(
+            calories = entry.calories.coerceAtLeast(0),
+            protein = entry.protein.coerceAtLeast(0),
+            carbs = entry.carbs.coerceAtLeast(0),
+            fats = entry.fats.coerceAtLeast(0)
+        )
+        
+        dietDao.insertLog(validatedEntry.toEntity().copy(isSynced = false))
         syncManager.startSync()
     }
+
 
     override suspend fun removeFood(entry: FoodLogEntry) {
         dietDao.softDelete(entry.id)

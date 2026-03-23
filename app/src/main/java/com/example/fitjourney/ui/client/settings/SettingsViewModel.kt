@@ -8,40 +8,23 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class SettingsViewModel(
-    private val authRepository: com.example.fitjourney.domain.repository.AuthRepository,
-    private val userPreferences: com.example.fitjourney.data.local.UserPreferences,
-    private val workoutReminderManager: com.example.fitjourney.data.manager.WorkoutReminderManager,
-    private val exportManager: com.example.fitjourney.data.manager.ExportManager
+    private val authRepository: com.example.fitjourney.domain.repository.AuthRepository
 ) : ViewModel() {
+
     
     val currentUser: StateFlow<com.example.fitjourney.domain.model.User?> = authRepository.currentUser
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    val reminderEnabled: StateFlow<Boolean> = userPreferences.workoutReminderEnabled
-        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
-
-    val reminderTime: StateFlow<String> = userPreferences.workoutReminderTime
-        .stateIn(viewModelScope, SharingStarted.Eagerly, "08:00")
-
-    val biometricLockEnabled: StateFlow<Boolean> = userPreferences.biometricLockEnabled
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
-
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    sealed class ExportStatus {
-        object Idle : ExportStatus()
-        object Exporting : ExportStatus()
-        data class Success(val uri: android.net.Uri) : ExportStatus()
-        data class Error(val message: String) : ExportStatus()
-    }
-
-    private val _exportStatus = MutableStateFlow<ExportStatus>(ExportStatus.Idle)
-    val exportStatus: StateFlow<ExportStatus> = _exportStatus.asStateFlow()
 
     // Editable state
     private val _username = MutableStateFlow("")
     val username: StateFlow<String> = _username.asStateFlow()
+
+    private val _englishAccent = MutableStateFlow("en-us")
+    val englishAccent: StateFlow<String> = _englishAccent.asStateFlow()
 
     private val _gender = MutableStateFlow("")
     val gender: StateFlow<String> = _gender.asStateFlow()
@@ -73,8 +56,6 @@ class SettingsViewModel(
     private val _coachPersona = MutableStateFlow("")
     val coachPersona: StateFlow<String> = _coachPersona.asStateFlow()
 
-    private val _customCoachPersona = MutableStateFlow("")
-    val customCoachPersona: StateFlow<String> = _customCoachPersona.asStateFlow()
 
     private val _calorieGoal = MutableStateFlow(2000)
     val calorieGoal: StateFlow<Int> = _calorieGoal.asStateFlow()
@@ -90,6 +71,7 @@ class SettingsViewModel(
             currentUser.collect { user ->
                 user?.let {
                     _username.value = it.username
+                    _englishAccent.value = user.englishAccent
                     _gender.value = it.gender
                     _height.value = it.height
                     _weight.value = it.weight
@@ -100,7 +82,7 @@ class SettingsViewModel(
                     _coachName.value = it.coachName
                     _coachGender.value = it.coachGender
                     _coachPersona.value = it.coachPersona
-                    _customCoachPersona.value = it.customCoachPersona
+
                     _calorieGoal.value = it.calorieGoal
                     _fitnessGoal.value = it.fitnessGoal
                 }
@@ -160,6 +142,7 @@ class SettingsViewModel(
 
     // Setters for UI
     fun setUsername(v: String) { _username.value = v }
+    fun setEnglishAccent(v: String) { _englishAccent.value = v }
     fun setGender(v: String) { _gender.value = v }
     fun setHeight(v: String) { _height.value = v }
     fun setWeight(v: String) { _weight.value = v }
@@ -171,26 +154,9 @@ class SettingsViewModel(
     fun setCoachGender(v: String) { _coachGender.value = v }
     fun setCoachPersona(v: String) { 
         _coachPersona.value = v 
-        when(v) {
-            "Rex" -> {
-                _coachName.value = "Sergeant Rex"
-                _coachGender.value = "Male"
-            }
-            "Zen" -> {
-                _coachName.value = "Zen Master"
-                _coachGender.value = "Male"
-            }
-            "Aurora" -> {
-                _coachName.value = "Aurora"
-                _coachGender.value = "Female"
-            }
-            "Arjun" -> {
-                _coachName.value = "Arjun"
-                _coachGender.value = "Male"
-            }
         }
     }
-    fun setCustomCoachPersona(v: String) { _customCoachPersona.value = v }
+
     fun setCalorieGoal(v: String) { _calorieGoal.value = v.toIntOrNull() ?: _calorieGoal.value }
     fun setFitnessGoal(v: String) { _fitnessGoal.value = v }
 
@@ -251,9 +217,10 @@ class SettingsViewModel(
                 coachName = _coachName.value,
                 coachGender = _coachGender.value,
                 coachPersona = _coachPersona.value,
-                customCoachPersona = _customCoachPersona.value,
+
                 calorieGoal = _calorieGoal.value,
-                fitnessGoal = _fitnessGoal.value
+                fitnessGoal = _fitnessGoal.value,
+                englishAccent = _englishAccent.value
             )
             authRepository.updateUserProfile(updatedUser)
             _isLoading.value = false
@@ -265,55 +232,5 @@ class SettingsViewModel(
             authRepository.logout()
         }
     }
-
-    fun setReminderEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            userPreferences.setWorkoutReminderEnabled(enabled)
-            if (enabled) {
-                scheduleReminder(reminderTime.value)
-            } else {
-                workoutReminderManager.cancelDailyReminder()
-            }
-        }
-    }
-
-    fun setReminderTime(time: String) {
-        viewModelScope.launch {
-            userPreferences.setWorkoutReminderTime(time)
-            if (reminderEnabled.value) {
-                scheduleReminder(time)
-            }
-        }
-    }
-
-    private fun scheduleReminder(time: String) {
-        val parts = time.split(":")
-        if (parts.size == 2) {
-            val hour = parts[0].toIntOrNull() ?: 8
-            val minute = parts[1].toIntOrNull() ?: 0
-            workoutReminderManager.scheduleDailyReminder(hour, minute)
-        }
-    }
-
-    fun setBiometricLockEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            userPreferences.setBiometricLockEnabled(enabled)
-        }
-    }
-
-    fun exportData() {
-        viewModelScope.launch {
-            _exportStatus.value = ExportStatus.Exporting
-            val uri = exportManager.exportAllData()
-            if (uri != null) {
-                _exportStatus.value = ExportStatus.Success(uri)
-            } else {
-                _exportStatus.value = ExportStatus.Error("Export failed")
-            }
-        }
-    }
-
-    fun resetExportStatus() {
-        _exportStatus.value = ExportStatus.Idle
-    }
 }
+

@@ -8,8 +8,21 @@ class FitJourneyApplication : Application() {
     lateinit var container: AppContainer
     override fun onCreate() {
         super.onCreate()
-        container = DefaultAppContainer(this)
-        createNotificationChannel()
+        try {
+            container = DefaultAppContainer(this)
+            // Fix 12: Trigger immediate sync on launch
+            container.syncManager.startSync()
+        } catch (e: Exception) {
+
+            e.printStackTrace()
+            // Create a minimal container so the app does not crash
+            container = DefaultAppContainer(this)
+        }
+        try {
+            createNotificationChannel()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun createNotificationChannel() {

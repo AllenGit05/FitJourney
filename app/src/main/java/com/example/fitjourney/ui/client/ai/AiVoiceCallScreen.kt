@@ -68,7 +68,6 @@ fun AiVoiceCallScreen(
     val coachName = when(user?.coachPersona) {
         "Rex"    -> "Coach Rex 💪"
         "Zen"    -> "Zen Master 🧘"
-        "Arjun"  -> "Coach Arjun 🇮🇳"
         "Custom" -> "My Coach"
         else     -> "Coach Aurora ✨"
     }
@@ -229,7 +228,8 @@ fun AiVoiceCallScreen(
                                             voiceManager.speakWithPersona(
                                                 text = response,
                                                 persona = user?.coachPersona,
-                                                gender = user?.coachGender
+                                                gender = user?.coachGender,
+                                                englishAccent = user?.englishAccent ?: "en-in"
                                             ) {
                                                 viewModel.setAiSpeaking(false)
                                             }

@@ -130,21 +130,29 @@ class ClientDashboardViewModel(
                 val tonePrompt = when (persona) {
                     "Rex" -> "extremely tough, military style, no-excuses motivator"
                     "Zen" -> "calm, encouraging, mindful and peaceful"
-                    "Aurora" -> "professional, data-driven, friendly and highly positive"
-                    else -> user.customCoachPersona.ifEmpty { "helpful fitness coach" }
+                    else -> "professional, data-driven, friendly and highly positive"
+                }
+
+
+                val accentStyle = when(user.englishAccent) {
+                    "en-in" -> "Write in warm Indian English. You may use words like yaar or achha naturally."
+                    "en-gb" -> "Write in British English with British expressions."
+                    "en-au" -> "Write in Australian English, relaxed and upbeat."
+                    else    -> "Write in standard American English."
                 }
 
                 val prompt = """
                     You are $persona, a fitness coach with a $tonePrompt tone.
                     User: ${user.username}.
                     Context: They have completed $last7DaysWorkouts workouts in the last 7 days.
-
+ 
                     Generate a 2-part greeting for the dashboard:
                     1. A warm welcome back (e.g., "Welcome back, [Name]! Ready to crush it?")
                     2. A short, single-line powerful motivation or insight based on their progress.
-
-                    Keep the entire response under 40 words.
+ 
+                    Keep the entire response under 40 words. Use their accent style naturally.
                     Separate the welcome and the insight with a newline.
+                    Style: $accentStyle
                 """.trimIndent()
 
                 val greeting = apiRepository.generateContent(prompt)

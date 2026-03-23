@@ -1,23 +1,14 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Allow users to read and write their own profile and sub-collections
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
       
-      // Allow access to all sub-collections
-      match /{allSubcollections=**} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-    }
-    
-    // Admin access (simplified for prototype)
-    // In production, add a custom claim or 'role' check
-    match /{allDocuments=**} {
-      allow read, write: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
+      match /workouts/{workoutId} { allow read, write: if request.auth.uid == userId; }
+      match /diet/{dietId} { allow read, write: if request.auth.uid == userId; }
+      match /habits/{habitId} { allow read, write: if request.auth.uid == userId; }
+      match /progress/{progressId} { allow read, write: if request.auth.uid == userId; }
+      match /water/{waterId} { allow read, write: if request.auth.uid == userId; }
     }
   }
 }
