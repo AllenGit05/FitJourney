@@ -90,9 +90,13 @@ class SignUpViewModel(
             onError("Password must be at least 6 characters.")
             return
         }
-        if (_email.value.isBlank() || _username.value.isBlank()) {
-            _errorMessage.value = "Email and Username are required."
-            onError("Email and Username are required.")
+        if (_email.value.isBlank() || _username.value.isBlank() || 
+            _dob.value.isBlank() || _gender.value.isBlank() || 
+            _height.value.isBlank() || _weight.value.isBlank() || 
+            _activityLevel.value.isBlank() || _fitnessGoal.value.isBlank() || 
+            _foodType.value.isBlank() || _backupPin.value.isBlank()) {
+            _errorMessage.value = "All fields are mandatory."
+            onError("All fields are mandatory.")
             return
         }
 
@@ -126,7 +130,8 @@ class SignUpViewModel(
                 foodType = _foodType.value,
                 fitnessGoal = _fitnessGoal.value,
                 calorieGoal = calculatedCalories,
-                aiCredits = 20
+                aiCredits = 20,
+                backupPin = _backupPin.value
             )
 
             val result = authRepository.signUpClient(user, _password.value)

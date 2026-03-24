@@ -8,7 +8,7 @@ interface AuthRepository {
     
     suspend fun login(email: String, password: String): Result<User>
     suspend fun signUpClient(user: User, password: String): Result<User>
-    suspend fun resetPassword(email: String, backupPin: String, newPassword: String): Result<Unit>
+    suspend fun resetPassword(email: String): Result<Unit>
     suspend fun updateUserProfile(user: User): Result<Unit>
     suspend fun logout()
     
@@ -25,6 +25,6 @@ interface AuthRepository {
     ): Result<Unit>
     suspend fun reAuthenticate(email: String, password: String): Result<Unit>
     suspend fun recoverAccount(email: String, password: String): Result<User>
-    suspend fun deleteAccount(): Result<Unit>
+    suspend fun deleteAccount(password: String): Result<Unit>
 }
 

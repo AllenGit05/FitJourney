@@ -112,8 +112,8 @@ class UserRepositoryImpl(
         calorieGoal = calorieGoal,
         fitnessGoal = fitnessGoal,
         coachPersona = coachPersona,
-        customCoachPersona = customCoachPersona,
         coachGender = coachGender,
+
         coachName = coachName,
         lastGreeting = lastGreeting,
         lastGreetingDate = lastGreetingDate,
@@ -148,8 +148,8 @@ class UserRepositoryImpl(
         calorieGoal = calorieGoal,
         fitnessGoal = fitnessGoal,
         coachPersona = coachPersona,
-        customCoachPersona = customCoachPersona,
         coachGender = coachGender,
+
         coachName = coachName,
         lastGreeting = lastGreeting,
         lastGreetingDate = lastGreetingDate,

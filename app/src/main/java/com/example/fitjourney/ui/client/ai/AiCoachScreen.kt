@@ -86,14 +86,16 @@ fun AiCoachScreen(
     if (showPersonaDialog) {
         PersonaSelectionDialog(
             currentPersona = user?.coachPersona ?: "Aurora",
-            currentCustomBio = user?.customCoachPersona ?: "",
+            currentAccent = user?.englishAccent ?: "en-in",
             onDismiss = { showPersonaDialog = false },
-            onSave = { persona, bio ->
-                viewModel.updatePersona(persona, bio)
+            onSave = { persona, accent ->
+                viewModel.updatePersona(persona)
+                viewModel.setEnglishAccent(accent)
                 showPersonaDialog = false
             }
         )
     }
+
 
     if (showClearDialog) {
         AlertDialog(
@@ -126,11 +128,11 @@ fun AiCoachScreen(
                         "Zen"    -> "Zen Master 🧘"
                         else     -> "Coach Aurora ✨"
                     }
-
-                    Column {
-                        Text(coachName, color = FJTextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(coachName, color = FJTextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Black)
+                        Spacer(Modifier.width(8.dp))
                         Text(
-                            text = if (user?.isPremium == true) "Premium • Unlimited" else "${user?.aiCredits ?: 0} Credits Remaining",
+                            text = if (user?.isPremium == true) "Premium" else "• ${user?.aiCredits ?: 0} Cr",
                             color = if (user?.isPremium == true) Color(0xFF4CAF50) else FJGold,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
@@ -476,31 +478,64 @@ fun PaymentMethodOption(
 @Composable
 fun PersonaSelectionDialog(
     currentPersona: String,
-    currentCustomBio: String,
+    currentAccent: String,
     onDismiss: () -> Unit,
     onSave: (String, String) -> Unit
 ) {
-    var selected by remember { mutableStateOf(currentPersona) }
-    var customBio by remember { mutableStateOf(currentCustomBio) }
+    var selectedPersona by remember { mutableStateOf(currentPersona) }
+    var selectedAccent by remember { mutableStateOf(currentAccent) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = FJSurface,
-        title = { Text("Choose Your Coach", color = FJGold, fontWeight = FontWeight.Bold) },
+        title = { Text("Coach Settings", color = FJGold, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                PersonaOption("Aurora", "Supportive & Encouraging", "Supportive", selected == "Aurora") { selected = "Aurora" }
-                PersonaOption("Rex", "Strict & High Energy", "No-nonsense", selected == "Rex") { selected = "Rex" }
-                PersonaOption("Zen", "Calm & Mindful", "Holistic", selected == "Zen") { selected = "Zen" }
-            }
+                Text("Persona", color = FJTextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PersonaOption("Aurora", "Supportive & Encouraging", selectedPersona == "Aurora") { selectedPersona = "Aurora" }
+                    PersonaOption("Rex", "Strict & High Energy", selectedPersona == "Rex") { selectedPersona = "Rex" }
+                    PersonaOption("Zen", "Calm & Mindful", selectedPersona == "Zen") { selectedPersona = "Zen" }
+                }
 
+                Spacer(Modifier.height(8.dp))
+                Text("Voice Accent", color = FJTextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                
+                val accentList = listOf(
+                    "Indian" to "en-in",
+                    "British" to "en-gb",
+                    "American" to "en-us",
+                    "Australian" to "en-au"
+                )
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    accentList.chunked(2).forEach { rowAccents ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            rowAccents.forEach { (label, code) ->
+                                val isSelected = selectedAccent == code
+                                Surface(
+                                    onClick = { selectedAccent = code },
+                                    modifier = Modifier.weight(1f).height(40.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSelected) FJGold else FJBackground,
+                                    border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, FJSurfaceHigh)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(label, color = if (isSelected) FJOnGold else FJTextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         },
         confirmButton = {
             Button(
-                onClick = { onSave(selected, customBio) },
+                onClick = { onSave(selectedPersona, selectedAccent) },
                 colors = ButtonDefaults.buttonColors(containerColor = FJGold)
             ) {
-                Text("Update Coach", color = FJOnGold, fontWeight = FontWeight.Bold)
+                Text("Save Changes", color = FJOnGold, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
@@ -513,7 +548,6 @@ fun PersonaSelectionDialog(
 fun PersonaOption(
     id: String,
     title: String,
-    subtitle: String,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
@@ -525,13 +559,10 @@ fun PersonaOption(
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, color = FJTextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Text(subtitle, color = FJTextSecondary, fontSize = 11.sp)
-            }
+            Text(title, color = FJTextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.weight(1f))
             RadioButton(selected = isSelected, onClick = onClick, colors = RadioButtonDefaults.colors(selectedColor = FJGold))
         }
     }

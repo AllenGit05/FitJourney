@@ -44,7 +44,8 @@ fun MacroCalculatorScreen(
     )
     var selectedActivityIndex by remember { mutableIntStateOf(0) }
     
-    val goals = listOf("Fat Loss", "Maintenance", "Muscle Gain")
+    val goals = listOf("Fat Loss", "Maintain", "Muscle Gain")
+
     var selectedGoalIndex by remember { mutableIntStateOf(1) }
     
     var showManualMode by remember { mutableStateOf(false) }

@@ -37,15 +37,16 @@ fun AdminProfileScreen(
     LaunchedEffect(uiState.emailSuccess) {
         uiState.emailSuccess?.let {
             snackbarHostState.showSnackbar(it)
-            viewModel.clearMessages()
+            viewModel.clearEmailMessage()
         }
     }
     LaunchedEffect(uiState.passwordSuccess) {
         uiState.passwordSuccess?.let {
             snackbarHostState.showSnackbar(it)
-            viewModel.clearMessages()
+            viewModel.clearPasswordMessage()
         }
     }
+
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -226,25 +227,26 @@ fun AdminProfileScreen(
                         enabled = !uiState.isChangingEmail,
                         colors = ButtonDefaults.buttonColors(containerColor = FJGold),
                         shape = RoundedCornerShape(10.dp)
-                    ) {
-                        if (uiState.isChangingEmail) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                color = FJBackground,
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text("Updating...", color = FJBackground, fontWeight = FontWeight.Bold)
-                        } else {
-                            Icon(
-                                Icons.Default.Save, null,
-                                tint = FJBackground,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text("Update Email", color = FJBackground, fontWeight = FontWeight.Bold)
+                        ) {
+                            if (uiState.isChangingEmail) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    color = FJBackground,
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text("Updating...", color = FJBackground, fontWeight = FontWeight.Bold)
+                            } else {
+                                Icon(
+                                    Icons.Default.Save, null,
+                                    tint = FJBackground,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text("Update Email", color = FJBackground, fontWeight = FontWeight.Bold)
+                            }
                         }
-                    }
+
                 }
             }
 
@@ -408,15 +410,26 @@ private fun PasswordField(
         label = { Text(label) },
         leadingIcon = { Icon(Icons.Default.Lock, null, tint = FJGold) },
         trailingIcon = {
-            IconButton(onClick = onToggleVisibility) {
-                Icon(
-                    if (isVisible) Icons.Default.VisibilityOff
-                    else Icons.Default.Visibility,
-                    null,
-                    tint = FJTextSecondary
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (trailingMatchIcon) {
+                    Icon(
+                        Icons.Default.CheckCircle,
+                        null,
+                        tint = FJSuccess,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                IconButton(onClick = onToggleVisibility) {
+                    Icon(
+                        if (isVisible) Icons.Default.VisibilityOff
+                        else Icons.Default.Visibility,
+                        null,
+                        tint = FJTextSecondary
+                    )
+                }
             }
         },
+
         visualTransformation = if (isVisible) VisualTransformation.None
                                else PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(

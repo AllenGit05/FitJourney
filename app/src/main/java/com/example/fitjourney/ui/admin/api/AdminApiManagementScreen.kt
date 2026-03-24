@@ -130,10 +130,11 @@ fun AdminApiManagementScreen(
                                     "• 15 requests/minute (RPM)\n" +
                                     "• 1,500 requests/day (RPD)\n" +
                                     "• Daily quota resets at midnight Pacific Time\n\n" +
-                                    "Your Groq fallback (Llama 3.3 70B) is automatically handling requests while Gemini is rate limited. No action needed.",
+                                    "This is NOT a code bug — it is the Gemini free tier quota. Groq (Llama 3.3-70b) is already handling all AI requests automatically as the fallback engine.",
                                     color = FJTextSecondary,
                                     fontSize = 11.sp
                                 )
+
                             }
                         }
                     }

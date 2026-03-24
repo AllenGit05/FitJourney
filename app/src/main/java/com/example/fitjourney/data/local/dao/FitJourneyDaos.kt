@@ -24,7 +24,7 @@ interface UserDao {
 
 @Dao
 interface WorkoutDao {
-    @Query("SELECT * FROM workout_sessions ORDER BY date DESC")
+    @Query("SELECT * FROM workout_sessions WHERE isDeleted = 0 ORDER BY date DESC")
     fun getAllSessions(): Flow<List<WorkoutEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -45,7 +45,7 @@ interface WorkoutDao {
 
 @Dao
 interface DietDao {
-    @Query("SELECT * FROM diet_logs ORDER BY timestamp DESC")
+    @Query("SELECT * FROM diet_logs WHERE isDeleted = 0 ORDER BY timestamp DESC")
     fun getAllLogs(): Flow<List<DietEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -72,7 +72,7 @@ interface DietDao {
 
 @Dao
 interface StepsDao {
-    @Query("SELECT * FROM step_logs ORDER BY date DESC")
+    @Query("SELECT * FROM step_logs WHERE isDeleted = 0 ORDER BY date DESC")
     fun getAllSteps(): Flow<List<com.example.fitjourney.data.local.entity.StepsEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -93,7 +93,7 @@ interface StepsDao {
 
 @Dao
 interface WaterDao {
-    @Query("SELECT * FROM water_logs ORDER BY date DESC")
+    @Query("SELECT * FROM water_logs WHERE isDeleted = 0 ORDER BY date DESC")
     fun getAllWater(): Flow<List<com.example.fitjourney.data.local.entity.WaterEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -114,7 +114,7 @@ interface WaterDao {
 
 @Dao
 interface WeightDao {
-    @Query("SELECT * FROM weight_logs ORDER BY date DESC")
+    @Query("SELECT * FROM weight_logs WHERE isDeleted = 0 ORDER BY date DESC")
     fun getAllWeight(): Flow<List<com.example.fitjourney.data.local.entity.WeightEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -135,7 +135,7 @@ interface WeightDao {
 
 @Dao
 interface PhotoDao {
-    @Query("SELECT * FROM progress_photos ORDER BY date DESC")
+    @Query("SELECT * FROM progress_photos WHERE isDeleted = 0 ORDER BY date DESC")
     fun getAllPhotos(): Flow<List<com.example.fitjourney.data.local.entity.ProgressPhotoEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -156,7 +156,7 @@ interface PhotoDao {
 
 @Dao
 interface BodyMeasurementDao {
-    @Query("SELECT * FROM body_measurements ORDER BY date DESC")
+    @Query("SELECT * FROM body_measurements WHERE isDeleted = 0 ORDER BY date DESC")
     fun getAllMeasurements(): Flow<List<com.example.fitjourney.data.local.entity.BodyMeasurementEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -203,7 +203,7 @@ interface ChatDao {
 
 @Dao
 interface HabitDao {
-    @Query("SELECT * FROM habits")
+    @Query("SELECT * FROM habits WHERE isDeleted = 0")
     fun getAllHabits(): kotlinx.coroutines.flow.Flow<List<com.example.fitjourney.data.local.entity.HabitEntity>>
 
     @Query("SELECT * FROM habits WHERE id = :id LIMIT 1")
@@ -227,7 +227,7 @@ interface HabitDao {
 
 @Dao
 interface WeeklyReportDao {
-    @Query("SELECT * FROM weekly_reports ORDER BY generatedAt DESC")
+    @Query("SELECT * FROM weekly_reports WHERE isDeleted = 0 ORDER BY generatedAt DESC")
     fun getAllReports(): kotlinx.coroutines.flow.Flow<List<com.example.fitjourney.data.local.entity.WeeklyReportEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

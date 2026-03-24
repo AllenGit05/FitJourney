@@ -19,7 +19,7 @@ import com.example.fitjourney.data.local.dao.*
         HabitEntity::class,
         WeeklyReportEntity::class
     ],
-    version = 13,
+    version = 15,
     exportSchema = false
 )
 @TypeConverters(RoomConverters::class)

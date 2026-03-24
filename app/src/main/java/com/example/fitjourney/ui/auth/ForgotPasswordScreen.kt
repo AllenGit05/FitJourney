@@ -26,9 +26,6 @@ fun ForgotPasswordScreen(
     onResetSuccess: () -> Unit
 ) {
     val email              by viewModel.email.collectAsState()
-    val backupPin          by viewModel.backupPin.collectAsState()
-    val newPassword        by viewModel.newPassword.collectAsState()
-    val confirmNewPassword by viewModel.confirmNewPassword.collectAsState()
     val isLoading          by viewModel.isLoading.collectAsState()
 
     Box(
@@ -45,7 +42,7 @@ fun ForgotPasswordScreen(
             Spacer(Modifier.height(16.dp))
 
             Text("Reset Password", color = FJTextPrimary, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-            Text("Enter your email, backup PIN and a new password.", color = FJTextSecondary, fontSize = 14.sp)
+            Text("Enter your email address to receive a password reset link.", color = FJTextSecondary, fontSize = 14.sp)
 
             Spacer(Modifier.height(32.dp))
 
@@ -54,30 +51,6 @@ fun ForgotPasswordScreen(
                 onValueChange = viewModel::setEmail,
                 placeholder = "Email address",
                 leadingIcon = { Icon(Icons.Default.Email, null, tint = FJTextSecondary) }
-            )
-            Spacer(Modifier.height(16.dp))
-            FJTextField(
-                value = backupPin,
-                onValueChange = viewModel::setBackupPin,
-                placeholder = "Backup PIN",
-                leadingIcon = { Icon(Icons.Default.Pin, null, tint = FJTextSecondary) },
-                isPassword = true
-            )
-            Spacer(Modifier.height(16.dp))
-            FJTextField(
-                value = newPassword,
-                onValueChange = viewModel::setNewPassword,
-                placeholder = "New Password",
-                leadingIcon = { Icon(Icons.Default.Lock, null, tint = FJTextSecondary) },
-                isPassword = true
-            )
-            Spacer(Modifier.height(16.dp))
-            FJTextField(
-                value = confirmNewPassword,
-                onValueChange = viewModel::setConfirmNewPassword,
-                placeholder = "Confirm New Password",
-                leadingIcon = { Icon(Icons.Default.Lock, null, tint = FJTextSecondary) },
-                isPassword = true
             )
 
             Spacer(Modifier.height(32.dp))

@@ -4,6 +4,9 @@ import com.example.fitjourney.data.local.ApiKeyStore
 import com.example.fitjourney.util.RateLimitHandler
 import com.google.ai.client.generativeai.GenerativeModel
 import com.google.ai.client.generativeai.type.content
+import com.google.ai.client.generativeai.type.ServerException
+import com.google.ai.client.generativeai.type.InvalidStateException
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -44,12 +47,23 @@ class AiEngine(
                 }
             } catch (geminiEx: Exception) {
                 val errorMsg = geminiEx.message ?: ""
-                // If NOT a fallback-worthy error, don't try Groq — propagate immediately
-                if (!RateLimitHandler.shouldFallbackToGroq(errorMsg)) {
+                val isFallbackWorthy = RateLimitHandler.shouldFallbackToGroq(errorMsg) ||
+                                      geminiEx is ServerException ||
+                                      geminiEx is InvalidStateException
+
+                if (!isFallbackWorthy) {
                     return@withContext AiResult(content = "", error = errorMsg)
+                }
+
+                if (groqKey.isBlank()) {
+                    return@withContext AiResult(
+                        content = "",
+                        error = "Gemini rate limited and no Groq fallback key is configured. Please add a Groq key in Admin → API Management."
+                    )
                 }
                 // Otherwise fall through to Groq fallback below
             }
+
         }
 
         // STEP 2: Try Groq (either Gemini failed/rate-limited OR Gemini key not set)
@@ -69,7 +83,7 @@ class AiEngine(
         // STEP 3: Both keys missing
         return@withContext AiResult(
             content = "",
-            error = "No API keys configured. Please go to Admin → API Management to add your keys."
+            error = "No API keys configured. Please add a Gemini or Groq key in Admin → API Management."
         )
     }
 

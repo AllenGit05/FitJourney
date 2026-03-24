@@ -3,11 +3,18 @@ package com.example.fitjourney.ui.client.insights
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.fitjourney.data.local.entity.WeeklyReportEntity
+import com.example.fitjourney.domain.model.WeeklyReport
 import com.example.fitjourney.domain.repository.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import android.content.ContentValues
+import android.provider.MediaStore
+import android.os.Environment
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 data class WeeklyInsightsUiState(
     val isGenerating: Boolean = false,
@@ -27,6 +34,65 @@ class WeeklyInsightsViewModel(
 
     private val _uiState = MutableStateFlow(WeeklyInsightsUiState())
     val uiState: StateFlow<WeeklyInsightsUiState> = _uiState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            weeklyReportRepository.reports.first().maxByOrNull { it.generatedAt }?.let { latest ->
+                val entity = WeeklyReportEntity(
+                    id = latest.id,
+                    weekStartDate = latest.weekStartDate,
+                    weekEndDate = latest.weekEndDate,
+                    averageSteps = latest.averageSteps,
+                    totalWorkouts = latest.totalWorkouts,
+                    averageCalories = latest.averageCalories,
+                    averageWaterMl = latest.averageWaterMl,
+                    weightChangeKg = latest.weightChangeKg,
+                    aiAnalysis = latest.aiAnalysis,
+                    generatedAt = latest.generatedAt
+                )
+                _uiState.update { it.copy(currentReport = entity) }
+            }
+        }
+    }
+
+    fun saveReport(context: android.content.Context, report: WeeklyReportEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val fileName = "FitJourney_Weekly_Report_${SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())}.txt"
+                val content = buildString {
+                    appendLine("FitJourney Weekly Insights Report")
+                    appendLine("Generated: ${SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault()).format(Date(report.generatedAt))}")
+                    appendLine("Period: ${SimpleDateFormat("MMM dd", Locale.getDefault()).format(Date(report.weekStartDate))} - ${SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(report.weekEndDate))}")
+                    appendLine("---")
+                    appendLine("Workouts: ${report.totalWorkouts}")
+                    appendLine("Avg Steps: ${report.averageSteps}")
+                    appendLine("Avg Calories: ${report.averageCalories.toInt()} kcal")
+                    appendLine("Avg Water: ${report.averageWaterMl} ml")
+                    appendLine("Weight Change: ${report.weightChangeKg} kg")
+                    appendLine("---")
+                    appendLine(report.aiAnalysis)
+                }
+
+                val values = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                    put(MediaStore.MediaColumns.MIME_TYPE, "text/plain")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                }
+
+                val resolver = context.contentResolver
+                val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                
+                uri?.let {
+                    resolver.openOutputStream(it)?.use { stream ->
+                        stream.write(content.toByteArray())
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = "Failed to save report: ${e.message}") }
+            }
+        }
+    }
+
 
     fun generateWeeklyReport() {
         viewModelScope.launch {

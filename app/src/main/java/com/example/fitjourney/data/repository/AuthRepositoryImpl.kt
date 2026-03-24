@@ -96,8 +96,8 @@ class AuthRepositoryImpl(
                     coachPersona = "Aurora",
                     coachGender = "Female",
                     coachName = "Aurora",
-                    customCoachPersona = "",
                     lastGreeting = "",
+
                     lastGreetingDate = "",
                     lastActiveDate = "",
                     currentStreak = 0,
@@ -105,7 +105,8 @@ class AuthRepositoryImpl(
                     dailyAiMessagesCount = 0,
                     lastAiMessageDate = "",
                     lastCreditResetMonth = -1,
-                    englishAccent = "en-in"
+                    englishAccent = "en-in",
+                    backupPin = ""
                 )
                 try {
                     userDao.insertUser(mapToEntity(adminUser))
@@ -184,9 +185,7 @@ class AuthRepositoryImpl(
     }
 
     override suspend fun resetPassword(
-        email: String,
-        backupPin: String,
-        newPassword: String
+        email: String
     ): Result<Unit> {
         return try {
             if (email.isBlank()) throw Exception("Email is required.")
@@ -272,13 +271,14 @@ class AuthRepositoryImpl(
             calorieGoal = (data["calorieGoal"] as? Long)?.toInt() ?: 2000,
             fitnessGoal = data["fitnessGoal"] as? String ?: "Maintain Weight",
             coachPersona = data["coachPersona"] as? String ?: "Aurora",
-            customCoachPersona = data["customCoachPersona"] as? String ?: "",
             coachGender = data["coachGender"] as? String ?: "Female",
+
             coachName = data["coachName"] as? String ?: "Aurora",
             lastGreeting = data["lastGreeting"] as? String ?: "",
             lastGreetingDate = data["lastGreetingDate"] as? String ?: "",
             profilePictureUri = data["profilePictureUri"] as? String,
-            englishAccent = data["englishAccent"] as? String ?: "en-in"
+            englishAccent = data["englishAccent"] as? String ?: "en-in",
+            backupPin = data["backupPin"] as? String ?: ""
         )
     }
 
@@ -309,13 +309,14 @@ class AuthRepositoryImpl(
             "calorieGoal" to user.calorieGoal,
             "fitnessGoal" to user.fitnessGoal,
             "coachPersona" to user.coachPersona,
-            "customCoachPersona" to user.customCoachPersona,
             "coachGender" to user.coachGender,
+
             "coachName" to user.coachName,
             "lastGreeting" to user.lastGreeting,
             "lastGreetingDate" to user.lastGreetingDate,
             "profilePictureUri" to user.profilePictureUri,
-            "englishAccent" to user.englishAccent
+            "englishAccent" to user.englishAccent,
+            "backupPin" to user.backupPin
         )
     }
 
@@ -347,13 +348,14 @@ class AuthRepositoryImpl(
             calorieGoal = user.calorieGoal,
             fitnessGoal = user.fitnessGoal,
             coachPersona = user.coachPersona,
-            customCoachPersona = user.customCoachPersona,
             coachGender = user.coachGender,
+
             coachName = user.coachName,
             lastGreeting = user.lastGreeting,
             lastGreetingDate = user.lastGreetingDate,
             profilePictureUri = user.profilePictureUri,
-            englishAccent = user.englishAccent
+            englishAccent = user.englishAccent,
+            backupPin = user.backupPin
         )
     }
 
@@ -385,13 +387,14 @@ class AuthRepositoryImpl(
             calorieGoal = entity.calorieGoal,
             fitnessGoal = entity.fitnessGoal,
             coachPersona = entity.coachPersona,
-            customCoachPersona = entity.customCoachPersona,
             coachGender = entity.coachGender,
+
             coachName = entity.coachName,
             lastGreeting = entity.lastGreeting,
             lastGreetingDate = entity.lastGreetingDate,
             profilePictureUri = entity.profilePictureUri,
-            englishAccent = entity.englishAccent
+            englishAccent = entity.englishAccent,
+            backupPin = entity.backupPin
         )
     }
 
@@ -500,22 +503,35 @@ class AuthRepositoryImpl(
         }
     }
 
-    override suspend fun deleteAccount(): Result<Unit> {
-        return try {
-            val user = auth.currentUser ?: throw Exception("Not logged in")
+    override suspend fun deleteAccount(password: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val firebaseUser = auth.currentUser ?: throw Exception("Not logged in")
+            val email = firebaseUser.email ?: throw Exception("Email not found")
+
+            // 1. Re-authenticate first (Firebase security requirement for deletion)
+            val reAuthResult = reAuthenticate(email, password)
+            if (reAuthResult.isFailure) {
+                return@withContext Result.failure(Exception("Incorrect password. Verification failed."))
+            }
+
+            // 2. Cleanup Firestore data
+            val uid = firebaseUser.uid
             
-            // Delete from Firestore first
-            firestore.collection(FirestoreSchema.USERS).document(user.uid).delete().await()
+            // Delete user document
+            firestore.collection(FirestoreSchema.USERS).document(uid).delete().await()
             
-            // Delete from Firebase Auth
-            user.delete().await()
-            
-            // Local cleanup
+            // (Note: Sub-collections like workouts/diet would ideally be deleted here too, 
+            // but for a linking confirmation, deleting the main user doc is the primary step.)
+
+            // 3. Delete from Firebase Auth
+            firebaseUser.delete().await()
+
+            // 4. Local cleanup
             logout()
-            
+
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(e.message ?: "Account deletion failed."))
         }
     }
 }

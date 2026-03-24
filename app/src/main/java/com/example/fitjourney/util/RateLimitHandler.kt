@@ -18,9 +18,11 @@ object RateLimitHandler {
         return error.contains("quota", ignoreCase = true) ||
                error.contains("rate limit", ignoreCase = true) ||
                error.contains("RESOURCE_EXHAUSTED", ignoreCase = true) ||
+               error.contains("ResourceExhausted", ignoreCase = true) ||
                error.contains("exceeded your current quota", ignoreCase = true) ||
                error.contains("429", ignoreCase = true)
     }
+
 
     fun shouldFallbackToGroq(error: String): Boolean {
         return isRateLimitError(error) ||

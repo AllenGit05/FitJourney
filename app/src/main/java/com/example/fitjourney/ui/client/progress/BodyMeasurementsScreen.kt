@@ -68,7 +68,7 @@ fun BodyMeasurementsScreen(
                         Modifier.fillMaxWidth().padding(vertical = 40.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(Icons.Default.History, null, tint = FJSurfaceHigh, modifier = Modifier.size(48.dp))
+                        Icon(Icons.Default.Straighten, null, tint = FJSurfaceHigh, modifier = Modifier.size(48.dp))
                         Spacer(Modifier.height(16.dp))
                         Text("No measurements logged yet.", color = FJTextSecondary)
                     }
@@ -100,14 +100,15 @@ fun MeasurementLogCard(log: com.example.fitjourney.domain.model.BodyMeasurement,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(16.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault()).format(java.util.Date(log.date)),
+                    modifier = Modifier.weight(1f),
                     color = FJTextPrimary,
                     fontWeight = FontWeight.Bold
                 )
-                IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
-                    Icon(Icons.Default.Delete, null, tint = FJTextSecondary.copy(0.5f), modifier = Modifier.size(16.dp))
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Default.Delete, null, tint = FJError.copy(0.7f), modifier = Modifier.size(20.dp))
                 }
             }
             Spacer(Modifier.height(12.dp))

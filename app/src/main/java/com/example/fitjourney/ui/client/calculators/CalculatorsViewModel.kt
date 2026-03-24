@@ -49,8 +49,10 @@ class CalculatorsViewModel : ViewModel() {
             val (proteinFactor, fatPercent) = when (goal) {
                 "Fat Loss" -> 2.4f to 0.20f   // High protein to preserve muscle, lower fat
                 "Muscle Gain" -> 2.0f to 0.25f // Standard protein, moderate fat
-                else -> 2.0f to 0.30f          // Maintenance: balanced
+                "Maintain", "Recomp" -> 2.0f to 0.30f
+                else -> 2.0f to 0.30f          // Default balanced
             }
+
             
             val proteinG = (weightKg * proteinFactor).toInt()
             val fatCal = (calories * fatPercent).toInt()
@@ -93,8 +95,10 @@ class CalculatorsViewModel : ViewModel() {
             val targetCalories = when (goal) {
                 "Fat Loss" -> (tdee - 500).toInt()
                 "Muscle Gain" -> (tdee + 300).toInt()
+                "Maintain", "Recomp" -> tdee.toInt()
                 else -> tdee.toInt()
             }
+
             
             // 4. Calculate Macros
             calculateMacros(goal, targetCalories, weightKg)

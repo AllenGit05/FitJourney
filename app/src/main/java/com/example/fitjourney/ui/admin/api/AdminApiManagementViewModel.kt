@@ -142,9 +142,16 @@ class AdminApiManagementViewModel(
             } catch (e: Exception) {
                 val latency = System.currentTimeMillis() - start
                 val msg = e.message ?: "Unknown error"
-                val isRateLimit = RateLimitHandler.isRateLimitError(msg)
+                
+                // Detection for rate limiting
+                val isRateLimit = RateLimitHandler.isRateLimitError(msg) || 
+                                 msg.contains("RESOURCE_EXHAUSTED", ignoreCase = true) || 
+                                 msg.contains("quota", ignoreCase = true)
+
                 val retrySeconds = if (isRateLimit) RateLimitHandler.parseRetrySeconds(msg) else 0
                 val statusMsg = when {
+                    isRateLimit && (msg.contains("RESOURCE_EXHAUSTED", ignoreCase = true) || msg.contains("quota", ignoreCase = true)) ->
+                        "Free tier limit hit (15 req/min or 1,500/day). Your Groq fallback is handling requests automatically. No action needed unless Groq key is also missing."
                     isRateLimit && retrySeconds > 0 ->
                         "Rate limited — retry in ${retrySeconds}s. Groq fallback is active."
                     isRateLimit ->
@@ -161,6 +168,7 @@ class AdminApiManagementViewModel(
                     )
                 }
             }
+
         }
     }
 

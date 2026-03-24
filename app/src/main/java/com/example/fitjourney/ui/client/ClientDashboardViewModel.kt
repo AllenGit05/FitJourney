@@ -135,7 +135,7 @@ class ClientDashboardViewModel(
 
 
                 val accentStyle = when(user.englishAccent) {
-                    "en-in" -> "Write in warm Indian English. You may use words like yaar or achha naturally."
+                    "en-in" -> "Write in warm Indian English. Use 'yaar' or 'achha' naturally and sparingly. Do NOT begin every message with 'yaar'."
                     "en-gb" -> "Write in British English with British expressions."
                     "en-au" -> "Write in Australian English, relaxed and upbeat."
                     else    -> "Write in standard American English."

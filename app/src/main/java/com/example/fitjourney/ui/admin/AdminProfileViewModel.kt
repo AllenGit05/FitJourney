@@ -98,18 +98,31 @@ class AdminProfileViewModel(
 
             result.fold(
                 onSuccess = {
+                    val newEmail = state.newEmail.trim()
+                    // Fixed: Update display immediately before reloading
                     _uiState.update {
                         it.copy(
                             isChangingEmail = false,
-                            currentEmailDisplay = state.newEmail.trim(),
+                            currentEmailDisplay = newEmail,
                             newEmail = "",
                             emailCurrentPassword = "",
                             emailSuccess = "Email updated successfully! Use your new email to log in next time.",
                             emailError = null
                         )
                     }
+
+                    // Fixed: Save to DataStore with try/catch
+                    viewModelScope.launch {
+                        try {
+                            adminConfig.saveAdminEmail(newEmail)
+                        } catch (e: Exception) {
+                            android.util.Log.e("AdminProfileViewModel", "Failed to save admin email to DataStore", e)
+                            // Still success because Auth updated
+                        }
+                    }
                     loadCurrentEmail()
                 },
+
                 onFailure = { e ->
                     _uiState.update {
                         it.copy(
@@ -206,6 +219,14 @@ class AdminProfileViewModel(
         }
     }
 
+    fun clearEmailMessage() {
+        _uiState.update { it.copy(emailSuccess = null, emailError = null) }
+    }
+
+    fun clearPasswordMessage() {
+        _uiState.update { it.copy(passwordSuccess = null, passwordError = null) }
+    }
+
     fun clearMessages() {
         _uiState.update {
             it.copy(
@@ -217,3 +238,4 @@ class AdminProfileViewModel(
         }
     }
 }
+

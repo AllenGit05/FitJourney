@@ -46,6 +46,7 @@ fun SettingsScreen(
     val coachPersona  by viewModel.coachPersona.collectAsState()
     val englishAccent by viewModel.englishAccent.collectAsState()
     val isLoading     by viewModel.isLoading.collectAsState()
+    val errorMessage  by viewModel.errorMessage.collectAsState()
 
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -57,6 +58,9 @@ fun SettingsScreen(
     val datePickerState = rememberDatePickerState()
 
     val user by viewModel.currentUser.collectAsState()
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var passwordForDelete by remember { mutableStateOf("") }
+
     val imagePickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
     ) { uri: android.net.Uri? ->
@@ -128,10 +132,11 @@ fun SettingsScreen(
                 
                 FJOptionLabel("Goal")
                 FJOptionRow(
-                    options = listOf("Lose Weight", "Maintain Weight", "Gain Weight"),
-                    selected = user?.fitnessGoal ?: "Maintain Weight",
+                    options = listOf("Fat Loss", "Recomp", "Muscle Gain", "Maintain"),
+                    selected = user?.fitnessGoal ?: "Maintain",
                     onSelect = viewModel::setFitnessGoal
                 )
+
 
                 FJOptionLabel("Daily Calorie Goal")
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -189,36 +194,6 @@ fun SettingsScreen(
                 )
 
 
-                FJOptionLabel("Voice Accent")
-                // 2x2 Grid for Accents
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    val accentList = listOf(
-                        "Indian" to "en-in",
-                        "British" to "en-gb",
-                        "American" to "en-us",
-                        "Australian" to "en-au"
-                    )
-                    repeat(2) { rowIndex ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            repeat(2) { colIndex ->
-                                val index = rowIndex * 2 + colIndex
-                                val (label, code) = accentList[index]
-                                val isSelected = englishAccent == code
-                                Surface(
-                                    onClick = { viewModel.setEnglishAccent(code) },
-                                    modifier = Modifier.weight(1f).height(48.dp),
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = if (isSelected) FJGold else FJSurface,
-                                    border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, FJSurfaceHigh)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Text(label, color = if (isSelected) FJOnGold else FJTextPrimary, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -238,11 +213,96 @@ fun SettingsScreen(
                     onClick = { viewModel.logout(); onLogout() },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Logout", color = FJError, fontWeight = FontWeight.Bold)
+                    Text("Logout", color = FJTextSecondary, fontWeight = FontWeight.Bold)
+                }
+
+                TextButton(
+                    onClick = { showDeleteDialog = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Delete Account", color = FJError, fontWeight = FontWeight.Medium, fontSize = 13.sp)
                 }
             }
-
             Spacer(Modifier.height(32.dp))
+        }
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { 
+                showDeleteDialog = false
+                passwordForDelete = ""
+                viewModel.clearError()
+            },
+            containerColor = FJSurface,
+            title = { Text("Delete Account?", color = FJError, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "This action is permanent and will delete all your data from our servers (Firestore and Authentication).",
+                        color = FJTextSecondary,
+                        fontSize = 14.sp
+                    )
+                    FJTextField(
+                        value = passwordForDelete,
+                        onValueChange = { passwordForDelete = it },
+                        placeholder = "Confirm Password",
+                        leadingIcon = { Icon(Icons.Default.Lock, null, tint = FJTextSecondary) },
+                        isPassword = true
+                    )
+                    if (errorMessage != null) {
+                        Text(errorMessage!!, color = FJError, fontSize = 12.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteAccount(passwordForDelete) {
+                            showDeleteDialog = false
+                            onLogout()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = FJError),
+                    enabled = passwordForDelete.isNotBlank() && !isLoading
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                    } else {
+                        Text("Delete Permanently", color = Color.White)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { 
+                    showDeleteDialog = false
+                    passwordForDelete = ""
+                    viewModel.clearError()
+                }) {
+                    Text("Cancel", color = FJTextSecondary)
+                }
+            }
+        )
+    }
+
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let {
+                        val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                        viewModel.setDob(sdf.format(Date(it)))
+                    }
+                    showDatePicker = false
+                }) { Text("OK", color = FJGold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel", color = FJTextSecondary) }
+            },
+            colors = DatePickerDefaults.colors(containerColor = FJSurface)
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 }

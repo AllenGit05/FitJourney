@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,7 +44,11 @@ fun WorkoutTrackingScreen(
     val activePlan     by viewModel.activePlan.collectAsState()
     val restRemaining  by viewModel.restTimeRemaining.collectAsState()
     
+    val templates      by viewModel.templates.collectAsState()
+    
     var showAddDialog by remember { mutableStateOf(false) }
+    var startTab      by remember { mutableIntStateOf(0) }
+    var showSaveTemplateDialog by remember { mutableStateOf(false) }
     var showSummary   by remember { mutableStateOf(false) }
     var searchQuery    by remember { mutableStateOf("") }
 
@@ -118,7 +123,14 @@ fun WorkoutTrackingScreen(
             }
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }, containerColor = FJGold, contentColor = FJOnGold) {
+            FloatingActionButton(
+                onClick = { 
+                    startTab = if (templates.isNotEmpty()) 1 else 0
+                    showAddDialog = true 
+                }, 
+                containerColor = FJGold, 
+                contentColor = FJOnGold
+            ) {
                 Icon(Icons.Default.Add, null)
             }
         }
@@ -154,10 +166,26 @@ fun WorkoutTrackingScreen(
     if (showAddDialog) {
         AddExerciseDialog(
             viewModel = viewModel,
+            startTab = startTab,
             onDismiss = { showAddDialog = false },
             onAdd = { name, restTime ->
                 viewModel.addExercise(name, listOf(WorkoutSet(0, 0f)), 0, 0, restTime)
                 showAddDialog = false
+            },
+            onSaveTemplateRequest = {
+                showAddDialog = false
+                showSaveTemplateDialog = true
+            }
+        )
+    }
+
+    if (showSaveTemplateDialog) {
+        SaveTemplateDialog(
+            onDismiss = { showSaveTemplateDialog = false },
+            onSave = { name ->
+                val exercises = session.map { TemplateExercise(it.name, it.sets.size, it.restTimeSeconds) }
+                viewModel.saveTemplate(name, exercises)
+                showSaveTemplateDialog = false
             }
         )
     }
@@ -267,14 +295,17 @@ fun SetTrackingRow(
 fun AddExerciseDialog(
     initialName: String = "", 
     viewModel: WorkoutTrackingViewModel,
+    startTab: Int = 0,
     onDismiss: () -> Unit, 
-    onAdd: (String, Int) -> Unit
+    onAdd: (String, Int) -> Unit,
+    onSaveTemplateRequest: () -> Unit
 ) {
+    var selectedTab by remember { mutableIntStateOf(startTab) }
     var name     by remember { mutableStateOf(initialName) }
     var restTime by remember { mutableStateOf("60") }
     
-    val isAiLoading by viewModel.isAiLoading.collectAsState()
-    val aiError     by viewModel.aiError.collectAsState()
+    val templates by viewModel.templates.collectAsState()
+    val session by viewModel.workoutSession.collectAsState()
 
     val fieldColors = OutlinedTextFieldDefaults.colors(
         focusedBorderColor = FJGold, unfocusedBorderColor = FJDivider,
@@ -285,41 +316,172 @@ fun AddExerciseDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = FJSurface,
-        title = { Text("Log Exercise", color = FJTextPrimary, fontWeight = FontWeight.Bold) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = name, 
-                    onValueChange = { name = it },
-                    placeholder = { Text("Exercise Name (e.g. Bench Press)", color = FJTextSecondary) },
-                    singleLine = true, 
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp), 
-                    colors = fieldColors
-                )
-                
-                OutlinedTextField(
-                    value = restTime, 
-                    onValueChange = { if (it.all { c -> c.isDigit() }) restTime = it },
-                    placeholder = { Text("Rest Time (seconds)", color = FJTextSecondary) },
-                    singleLine = true, 
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp), 
-                    colors = fieldColors,
-                    trailingIcon = {
-                        Icon(Icons.Default.Timer, null, tint = FJGold, modifier = Modifier.size(20.dp))
+        title = {
+            Column {
+                Text("Log Exercise", color = FJTextPrimary, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(16.dp))
+                TabRow(
+                    selectedTabIndex = selectedTab,
+                    containerColor = Color.Transparent,
+                    contentColor = FJGold,
+                    indicator = { tabPositions ->
+                        TabRowDefaults.SecondaryIndicator(
+                            Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                            color = FJGold
+                        )
+                    },
+                    divider = {}
+                ) {
+                    Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }) {
+                        Text("Manual", modifier = Modifier.padding(vertical = 8.dp), fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal)
                     }
-                )
+                    Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }) {
+                        Text("Templates", modifier = Modifier.padding(vertical = 8.dp), fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal)
+                    }
+                }
+            }
+        },
+        text = {
+            Column(Modifier.fillMaxWidth()) {
+                if (selectedTab == 0) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedTextField(
+                            value = name, 
+                            onValueChange = { name = it },
+                            placeholder = { Text("Exercise Name", color = FJTextSecondary) },
+                            singleLine = true, 
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp), 
+                            colors = fieldColors
+                        )
+                        
+                        OutlinedTextField(
+                            value = restTime, 
+                            onValueChange = { if (it.all { c -> c.isDigit() }) restTime = it },
+                            placeholder = { Text("Rest Time (seconds)", color = FJTextSecondary) },
+                            singleLine = true, 
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp), 
+                            colors = fieldColors,
+                            trailingIcon = {
+                                Icon(Icons.Default.Timer, null, tint = FJGold, modifier = Modifier.size(20.dp))
+                            }
+                        )
+                    }
+                } else {
+                    Column(Modifier.fillMaxWidth()) {
+                        if (templates.isEmpty()) {
+                            Box(Modifier.fillMaxWidth().height(150.dp), contentAlignment = Alignment.Center) {
+                                Text("No templates saved yet", color = FJTextSecondary, fontSize = 14.sp)
+                            }
+                        } else {
+                            LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+                                items(templates.size) { index ->
+                                    val template = templates[index]
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                        color = FJSurfaceHigh,
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Column(Modifier.weight(1f)) {
+                                                Text(template.name, color = FJTextPrimary, fontWeight = FontWeight.Bold)
+                                                Text("${template.exercises.size} exercises", color = FJTextSecondary, fontSize = 12.sp)
+                                            }
+                                            Button(
+                                                onClick = {
+                                                    template.exercises.forEach { ex ->
+                                                        val sets = List(ex.defaultSets) { WorkoutSet(0, 0f) }
+                                                        viewModel.addExercise(ex.name, sets, 0, 0, ex.restTimeSeconds)
+                                                    }
+                                                    onDismiss()
+                                                },
+                                                colors = ButtonDefaults.buttonColors(containerColor = FJGold),
+                                                contentPadding = PaddingValues(horizontal = 12.dp),
+                                                shape = RoundedCornerShape(8.dp),
+                                                modifier = Modifier.height(32.dp)
+                                            ) {
+                                                Text("Use", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if (session.isNotEmpty()) {
+                            Spacer(Modifier.height(12.dp))
+                            OutlinedButton(
+                                onClick = onSaveTemplateRequest,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, FJGold),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = FJGold)
+                            ) {
+                                Icon(Icons.Default.AutoAwesome, null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Save Current as Template", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
+            if (selectedTab == 0) {
+                Button(
+                    onClick = { 
+                        onAdd(name, restTime.toIntOrNull() ?: 60) 
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = FJGold, contentColor = FJOnGold),
+                    shape = RoundedCornerShape(50)
+                ) { Text("Start Tracking", fontWeight = FontWeight.Bold) }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel", color = FJTextSecondary) }
+        }
+    )
+}
+
+@Composable
+fun SaveTemplateDialog(
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = FJSurface,
+        title = { Text("Save Workout Template", color = FJTextPrimary, fontWeight = FontWeight.Bold) },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                placeholder = { Text("Template Name (e.g. Leg Day)", color = FJTextSecondary) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = FJGold,
+                    unfocusedBorderColor = FJDivider,
+                    focusedContainerColor = FJSurfaceHigh,
+                    unfocusedContainerColor = FJSurfaceHigh
+                )
+            )
+        },
+        confirmButton = {
             Button(
-                onClick = { 
-                    onAdd(name, restTime.toIntOrNull() ?: 60) 
-                },
+                onClick = { if (name.isNotBlank()) onSave(name) },
+                enabled = name.isNotBlank(),
                 colors = ButtonDefaults.buttonColors(containerColor = FJGold, contentColor = FJOnGold),
                 shape = RoundedCornerShape(50)
-            ) { Text("Start Tracking", fontWeight = FontWeight.Bold) }
+            ) { Text("Save", fontWeight = FontWeight.Bold) }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel", color = FJTextSecondary) }

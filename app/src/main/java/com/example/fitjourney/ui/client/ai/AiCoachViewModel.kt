@@ -293,16 +293,16 @@ class AiCoachViewModel(
 
         val accentInstruction = when (user.englishAccent) {
             "en-in" -> """
-
                 COMMUNICATION STYLE:
                 Write in warm Indian English. This user is from India.
                 Use Indian expressions naturally — words like "yaar",
                 "achha", "bilkul", "bas" when they feel natural and warm.
-                Reference Indian foods for nutrition examples: dal, roti,
-                sabzi, rice, idli, dosa, paneer. Use metric units (kg, km).
-                Keep tone like a trusted older sibling or friend.
-                Celebrate effort with phrases like "bahut achha kiya!"
+                IMPORTANT: Use "yaar" sparingly and only mid-sentence for warmth. 
+                NEVER start a message with "yaar" as it sounds unnatural.
+                Reference Indian foods for nutrition examples (dal, roti, paneer, etc). 
+                Use metric units (kg, km). Keep tone like a trusted friend.
             """.trimIndent()
+
             "en-gb" -> """
 
                 COMMUNICATION STYLE:

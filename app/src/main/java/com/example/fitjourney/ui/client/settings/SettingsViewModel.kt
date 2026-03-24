@@ -17,6 +17,9 @@ class SettingsViewModel(
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+ 
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
 
     // Editable state
@@ -60,7 +63,8 @@ class SettingsViewModel(
     private val _calorieGoal = MutableStateFlow(2000)
     val calorieGoal: StateFlow<Int> = _calorieGoal.asStateFlow()
 
-    private val _fitnessGoal = MutableStateFlow("Maintain Weight")
+    private val _fitnessGoal = MutableStateFlow("Maintain")
+
     val fitnessGoal: StateFlow<String> = _fitnessGoal.asStateFlow()
 
     private val _showCreditStore = MutableStateFlow(false)
@@ -111,11 +115,12 @@ class SettingsViewModel(
         val tdee = bmr * multiplier
         
         val adjusted = when (_fitnessGoal.value) {
-            "Lose Weight" -> tdee - 500
-            "Maintain Weight" -> tdee
-            "Gain Weight" -> tdee + 500
+            "Fat Loss" -> tdee - 500
+            "Maintain", "Recomp" -> tdee
+            "Muscle Gain" -> tdee + 300
             else -> tdee
         }
+
         
         _calorieGoal.value = adjusted.toInt()
     }
@@ -154,8 +159,8 @@ class SettingsViewModel(
     fun setCoachGender(v: String) { _coachGender.value = v }
     fun setCoachPersona(v: String) { 
         _coachPersona.value = v 
-        }
     }
+
 
     fun setCalorieGoal(v: String) { _calorieGoal.value = v.toIntOrNull() ?: _calorieGoal.value }
     fun setFitnessGoal(v: String) { _fitnessGoal.value = v }
@@ -232,5 +237,21 @@ class SettingsViewModel(
             authRepository.logout()
         }
     }
+ 
+    fun deleteAccount(password: String, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _errorMessage.value = null
+            val result = authRepository.deleteAccount(password)
+            _isLoading.value = false
+            if (result.isSuccess) {
+                onSuccess()
+            } else {
+                _errorMessage.value = result.exceptionOrNull()?.message ?: "Deletion failed"
+            }
+        }
+    }
+ 
+    fun clearError() { _errorMessage.value = null }
 }
 

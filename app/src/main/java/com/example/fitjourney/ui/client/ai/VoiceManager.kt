@@ -58,6 +58,16 @@ class VoiceManager(
         }
         // Set initial mode for voice communication
         audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+        
+        // Force routing to earpiece by default
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val earpieceDevice = audioManager.availableCommunicationDevices
+                .find { it.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE }
+            earpieceDevice?.let { audioManager.setCommunicationDevice(it) }
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.isSpeakerphoneOn = false
+        }
     }
 
     fun startListening(onResult: (String) -> Unit) {
@@ -87,9 +97,6 @@ class VoiceManager(
 
     fun speak(text: String, pitch: Float = 1.0f, rate: Float = 1.0f, onFinished: () -> Unit = {}) {
         if (isTtsReady) {
-            // Re-apply routing right before speaking to guard against system resets
-            applyAudioRouting(isSpeakerphoneRequested)
-            
             val cleanedText = cleanTextForSpeech(text)
             tts?.setPitch(pitch)
             tts?.setSpeechRate(rate)

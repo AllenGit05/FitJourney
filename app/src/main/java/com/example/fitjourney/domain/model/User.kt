@@ -41,5 +41,6 @@ data class User(
     val lastGreeting: String = "",
     val lastGreetingDate: String = "", // Format: "YYYY-MM-DD"
     val profilePictureUri: String? = null,
-    val englishAccent: String = "en-in" // en-us, en-gb, en-in, en-au
+    val englishAccent: String = "en-in", // en-us, en-gb, en-in, en-au
+    val backupPin: String = ""
 )

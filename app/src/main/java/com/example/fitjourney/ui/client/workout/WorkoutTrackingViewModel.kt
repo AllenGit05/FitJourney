@@ -9,10 +9,14 @@ import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
 
+data class TemplateExercise(val name: String, val defaultSets: Int, val restTimeSeconds: Int)
+data class WorkoutTemplate(val name: String, val exercises: List<TemplateExercise>)
+
 class WorkoutTrackingViewModel(
     private val workoutRepository: WorkoutRepository,
     private val authRepository: AuthRepository,
-    private val apiRepository: com.example.fitjourney.domain.repository.ApiRepository
+    private val apiRepository: com.example.fitjourney.domain.repository.ApiRepository,
+    private val context: android.content.Context
 ) : ViewModel() {
 
     private val _isAiLoading = MutableStateFlow(false)
@@ -35,6 +39,42 @@ class WorkoutTrackingViewModel(
 
     private val _isFinished = MutableStateFlow(false)
     val isFinished: StateFlow<Boolean> = _isFinished.asStateFlow()
+
+    private val TEMPLATES_KEY = "workout_templates_json"
+    private val _templates = MutableStateFlow<List<WorkoutTemplate>>(emptyList())
+    val templates: StateFlow<List<WorkoutTemplate>> = _templates.asStateFlow()
+
+    init {
+        val prefs = context.getSharedPreferences("workout_prefs", android.content.Context.MODE_PRIVATE)
+        val json = prefs.getString(TEMPLATES_KEY, null)
+        if (json != null) {
+            try {
+                val type = object : com.google.gson.reflect.TypeToken<List<WorkoutTemplate>>() {}.type
+                _templates.value = com.google.gson.Gson().fromJson(json, type) ?: emptyList()
+            } catch (e: Exception) { }
+        }
+    }
+
+    fun saveTemplate(name: String, exercises: List<TemplateExercise>) {
+        val newTemplates = _templates.value + WorkoutTemplate(name, exercises)
+        _templates.value = newTemplates
+        persistTemplates(newTemplates)
+    }
+
+    fun deleteTemplate(index: Int) {
+        val current = _templates.value.toMutableList()
+        if (index in current.indices) {
+            current.removeAt(index)
+            _templates.value = current
+            persistTemplates(current)
+        }
+    }
+
+    private fun persistTemplates(list: List<WorkoutTemplate>) {
+        val prefs = context.getSharedPreferences("workout_prefs", android.content.Context.MODE_PRIVATE)
+        val json = com.google.gson.Gson().toJson(list)
+        prefs.edit().putString(TEMPLATES_KEY, json).apply()
+    }
 
     // ── Rest Timer Logic ──────────────────────────────────────────
     private val _restTimeRemaining = MutableStateFlow(0) // Seconds

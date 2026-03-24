@@ -247,7 +247,7 @@ fun AiVoiceCallScreen(
                     var isSpeakerOn by remember { mutableStateOf(false) }
                     CallControlButton(
                         icon = if (isSpeakerOn) Icons.AutoMirrored.Filled.VolumeUp else Icons.Default.VolumeMute, 
-                        label = if (isSpeakerOn) "Speaker" else "Normal", 
+                        label = if (isSpeakerOn) "Speaker" else "Earpiece", 
                         containerColor = if (isSpeakerOn) FJGold else FJSurfaceHigh, 
                         contentColor = if (isSpeakerOn) FJOnGold else FJTextPrimary,
                         onClick = {

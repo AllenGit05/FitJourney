@@ -92,11 +92,11 @@ fun WeightProgressScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
-                            modifier = Modifier.padding(16.dp),
+                            modifier = Modifier.padding(16.dp).fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault()).format(Date(entry.date)),
                                     color = FJTextPrimary,
@@ -108,9 +108,12 @@ fun WeightProgressScreen(
                                     fontSize = 12.sp
                                 )
                             }
-                            Text("${entry.weight} kg", color = FJGold, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
-                            IconButton(onClick = { viewModel.deleteWeight(entry) }) {
-                                Icon(Icons.Default.Delete, null, tint = FJTextSecondary.copy(0.5f), modifier = Modifier.size(20.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("${entry.weight} kg", color = FJGold, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                                Spacer(Modifier.width(8.dp))
+                                IconButton(onClick = { viewModel.deleteWeight(entry) }) {
+                                    Icon(Icons.Default.Delete, null, tint = FJError.copy(0.6f), modifier = Modifier.size(20.dp))
+                                }
                             }
                         }
                     }

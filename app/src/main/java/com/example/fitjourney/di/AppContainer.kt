@@ -181,7 +181,8 @@ object AppViewModelProvider {
             com.example.fitjourney.ui.client.workout.WorkoutTrackingViewModel(
                 workoutRepository = fitJourneyApplication().container.workoutRepository,
                 authRepository = fitJourneyApplication().container.authRepository,
-                apiRepository = fitJourneyApplication().container.apiRepository
+                apiRepository = fitJourneyApplication().container.apiRepository,
+                context = fitJourneyApplication()
             )
         }
         initializer {
